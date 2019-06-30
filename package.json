@@ -1,0 +1,39 @@
+{
+  "name": "@kleros/tcr",
+  "version": "0.1.0",
+  "description": "Arbitrable Permission Lists on Ethereum",
+  "main": "index.js",
+  "repository": "https://github.com/kleros/tcr",
+  "author": "Kleros",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "prettify": "kathari prettify",
+    "lint:sol": "kathari lint:sol",
+    "lint:js": "kathari lint:js",
+    "lint": "yarn run lint:sol && yarn run lint:js",
+    "test:ganache": "ganache-cli --gasLimit 8000000  --defaultBalanceEther 10000 --quiet &",
+    "test:truffle": "truffle test",
+    "test": "run-p test:*",
+    "cz": "kathari cz",
+    "build": "truffle compile --all"
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "kathari precommit",
+      "commit-msg": "kathari commitmsg"
+    }
+  },
+  "devDependencies": {
+    "@kleros/kathari": "^0.23.0",
+    "eth-gas-reporter": "^0.2.0",
+    "ganache-cli": "^6.4.4",
+    "husky": "^2.4.1",
+    "truffle": "^5.0.25"
+  }
+}
