@@ -35,5 +35,8 @@
     "ganache-cli": "^6.4.4",
     "husky": "^2.4.1",
     "truffle": "^5.0.25"
+  },
+  "dependencies": {
+    "@kleros/erc-792": "^1.0.0"
   }
 }
