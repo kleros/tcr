@@ -87,6 +87,8 @@ contract AddressTCR is PermissionInterface, IArbitrable {
     uint RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
 
     // Settings
+    Arbitrator public arbitrator; // The current arbitrator.
+    bytes public arbitratorExtraData; // The current extra data to require particular dispute and appeal behaviour.
     address public governor; // The address that can make governance changes to the parameters of the Address Curated Registry.
     uint public requesterBaseDeposit; // The base deposit to make a request.
     uint public challengerBaseDeposit; // The base deposit to challenge a request.
@@ -108,6 +110,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
     /* Modifiers */
 
     modifier onlyGovernor {require(msg.sender == governor, "The caller must be the governor."); _;}
+    modifier onlyArbitrator {require(msg.sender == address(arbitrator), "Can only be called by the arbitrator."); _;}
 
     /* Events */
 
@@ -151,6 +154,28 @@ contract AddressTCR is PermissionInterface, IArbitrable {
      */
     event RewardWithdrawal(address indexed _address, address indexed _contributor, uint indexed _request, uint _round, uint _value);
 
+    /** @dev To be raised when evidence are submitted. Should point to the ressource (evidences are not to be stored on chain due to gas considerations).
+     *  @param _arbitrator The arbitrator of the contract.
+     *  @param _evidenceGroupID Unique identifier of the evidence group the evidence belongs to.
+     *  @param _party The address of the party submiting the evidence. Note that 0x0 refers to evidence not submitted by any party.
+     *  @param _evidence A URI to the evidence JSON file whose name should be its keccak256 hash followed by .json.
+     */
+    event Evidence(Arbitrator indexed _arbitrator, uint indexed _evidenceGroupID, address indexed _party, string _evidence);
+
+    /** @dev To be emmited when meta-evidence is submitted.
+     *  @param _metaEvidenceID Unique identifier of meta-evidence.
+     *  @param _evidence A link to the meta-evidence JSON.
+     */
+    event MetaEvidence(uint indexed _metaEvidenceID, string _evidence);
+
+    /** @dev To be emmited when a dispute is created to link the correct meta-evidence to the disputeID
+     *  @param _arbitrator The arbitrator of the contract.
+     *  @param _disputeID ID of the dispute in the Arbitrator contract.
+     *  @param _metaEvidenceID Unique identifier of meta-evidence.
+     *  @param _evidenceGroupID Unique identifier of the evidence group that is linked to this dispute.
+     */
+    event Dispute(Arbitrator indexed _arbitrator, uint indexed _disputeID, uint _metaEvidenceID, uint _evidenceGroupID);
+
 
     /* Constructor */
 
@@ -180,11 +205,13 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         uint _sharedStakeMultiplier,
         uint _winnerStakeMultiplier,
         uint _loserStakeMultiplier
-    ) IArbitrable(_arbitrator, _arbitratorExtraData) public {
+    ) IArbitrable() public {
         emit MetaEvidence(0, _registrationMetaEvidence);
         emit MetaEvidence(1, _clearingMetaEvidence);
 
         governor = _governor;
+        arbitrator = _arbitrator;
+        arbitratorExtraData = _arbitratorExtraData;
         requesterBaseDeposit = _requesterBaseDeposit;
         challengerBaseDeposit = _challengerBaseDeposit;
         challengePeriodDuration = _challengePeriodDuration;
@@ -275,7 +302,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
 
         // Raise a dispute.
         request.disputeID = request.arbitrator.createDispute.value(arbitrationCost)(RULING_OPTIONS, request.arbitratorExtraData);
-        arbitratorDisputeIDToAddress[request.arbitrator][request.disputeID] = _address;
+        arbitratorDisputeIDToAddress[address(request.arbitrator)][request.disputeID] = _address;
         request.disputed = true;
         request.rounds.length++;
         round.feeRewards = round.feeRewards.subCap(arbitrationCost);
@@ -366,7 +393,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
      *  @param _request The request from which to withdraw.
      *  @param _round The round from which to withdraw.
      */
-    function withdrawFeesAndRewards(address _beneficiary, address _address, uint _request, uint _round) public {
+    function withdrawFeesAndRewards(address payable _beneficiary, address _address, uint _request, uint _round) public {
         Address storage addr = addresses[_address];
         Request storage request = addr.requests[_request];
         Round storage round = request.rounds[_round];
@@ -411,7 +438,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
      *  @param _cursor The round from where to start withdrawing.
      *  @param _count Rounds greater or equal to this value won't be withdrawn. If set to 0 or a value larger than the number of rounds, iterates until the last round.
      */
-    function batchRoundWithdraw(address _beneficiary, address _address, uint _request, uint _cursor, uint _count) public {
+    function batchRoundWithdraw(address payable _beneficiary, address _address, uint _request, uint _cursor, uint _count) public {
         Address storage addr = addresses[_address];
         Request storage request = addr.requests[_request];
         for (uint i = _cursor; i<request.rounds.length && (_count==0 || i<_count); i++)
@@ -427,7 +454,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
      *  @param _roundCount Rounds greater or equal to this value won't be withdrawn. If set to 0 or a value larger than the number of rounds a request has, iteration for that request will stop at the last round.
      */
     function batchRequestWithdraw(
-        address _beneficiary,
+        address payable _beneficiary,
         address _address,
         uint _cursor,
         uint _count,
@@ -459,7 +486,13 @@ contract AddressTCR is PermissionInterface, IArbitrable {
             revert("There must be a request.");
 
         request.resolved = true;
-        withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _address, addr.requests.length - 1, 0); // Automatically withdraw for the requester.
+        address payable beneficiary = address(uint160(request.parties[uint(Party.Requester)]));
+        withdrawFeesAndRewards(
+            beneficiary,
+            _address,
+            addr.requests.length - 1,
+            0
+        ); // Automatically withdraw for the requester.
 
         emit AddressStatusChange(
             request.parties[uint(Party.Requester)],
@@ -483,7 +516,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         Request storage request = addr.requests[addr.requests.length - 1];
         Round storage round = request.rounds[request.rounds.length - 1];
         require(_ruling <= RULING_OPTIONS); // solium-disable-line error-reason
-        require(request.arbitrator == msg.sender); // solium-disable-line error-reason
+        require(address(request.arbitrator) == msg.sender); // solium-disable-line error-reason
         require(!request.resolved); // solium-disable-line error-reason
 
         // The ruling is inverted if the loser paid its fees.
@@ -607,7 +640,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
      *  @param _amount The amount contributed.
      *  @param _totalRequired The total amount required for this side.
      */
-    function contribute(Round storage _round, Party _side, address _contributor, uint _amount, uint _totalRequired) internal {
+    function contribute(Round storage _round, Party _side, address payable _contributor, uint _amount, uint _totalRequired) internal {
         // Take up to the amount necessary to fund the current round at the current costs.
         uint contribution; // Amount contributed.
         uint remainingETH; // Remaining ETH to send back.
@@ -646,12 +679,31 @@ contract AddressTCR is PermissionInterface, IArbitrable {
 
         request.resolved = true;
         request.ruling = Party(_ruling);
+        address payable beneficiary;
         // Automatically withdraw.
         if (winner == Party.None) {
-            withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _address, addr.requests.length-1, 0);
-            withdrawFeesAndRewards(request.parties[uint(Party.Challenger)], _address, addr.requests.length-1, 0);
+            beneficiary = address(uint160(request.parties[uint(Party.Requester)]));
+            withdrawFeesAndRewards(
+                beneficiary,
+                _address,
+                addr.requests.length-1,
+                0
+            );
+            beneficiary = address(uint160(request.parties[uint(Party.Challenger)]));
+            withdrawFeesAndRewards(
+                beneficiary,
+                _address,
+                addr.requests.length-1,
+                0
+            );
         } else {
-            withdrawFeesAndRewards(request.parties[uint(winner)], _address, addr.requests.length-1, 0);
+            beneficiary = address(uint160(request.parties[uint(winner)]));
+            withdrawFeesAndRewards(
+                beneficiary,
+                _address,
+                addr.requests.length-1,
+                0
+            );
         }
 
         emit AddressStatusChange(
@@ -672,7 +724,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
      *  @return allowed True if the address is allowed, false otherwise.
      */
     function isPermitted(bytes32 _address) external view returns (bool allowed) {
-        Address storage addr = addresses[address(_address)];
+        Address storage addr = addresses[address(uint160(uint256(_address)))];
         return addr.status == AddressStatus.Registered || addr.status == AddressStatus.ClearingRequested;
     }
 
@@ -772,7 +824,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         values = new address[](_count);
         uint index = 0;
 
-        if (_cursor == 0)
+        if (_cursor == address(0))
             cursorIndex = 0;
         else {
             for (uint j = 0; j < addressList.length; j++) {
