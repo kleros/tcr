@@ -12,7 +12,7 @@
     "lint:sol": "kathari lint:sol",
     "lint:js": "kathari lint:js",
     "lint": "yarn run lint:sol && yarn run lint:js",
-    "test:ganache": "ganache-cli --gasLimit 8000000  --defaultBalanceEther 10000 --quiet &",
+    "test:ganache": "ganache-cli --defaultBalanceEther 10000 --port=8545 --gasPrice=0x1 --gasLimit=0x1ffffffffff --quiet &",
     "test:truffle": "truffle test",
     "test": "run-p test:*",
     "cz": "kathari cz",
@@ -37,6 +37,7 @@
     "truffle": "^5.0.25"
   },
   "dependencies": {
-    "@kleros/erc-792": "^1.0.0"
+    "@kleros/erc-792": "^1.0.0",
+    "pify": "^4.0.1"
   }
 }

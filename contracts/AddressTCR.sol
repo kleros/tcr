@@ -800,71 +800,71 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         }
     }
 
-    /** @dev Return the values of the addresses the query finds. This function is O(n), where n is the number of addresses. This could exceed the gas limit, therefore this function should only be used for interface display and not by other contracts.
-     *  @param _cursor The address from which to start iterating. To start from either the oldest or newest item.
-     *  @param _count The number of addresses to return.
-     *  @param _filter The filter to use. Each element of the array in sequence means:
-     *  - Include absent addresses in result.
-     *  - Include registered addresses in result.
-     *  - Include addresses with registration requests that are not disputed in result.
-     *  - Include addresses with clearing requests that are not disputed in result.
-     *  - Include disputed addresses with registration requests in result.
-     *  - Include disputed addresses with clearing requests in result.
-     *  - Include addresses submitted by the caller.
-     *  - Include addresses challenged by the caller.
-     *  @param _oldestFirst Whether to sort from oldest to the newest item.
-     *  @return The values of the addresses found and whether there are more addresses for the current filter and sort.
-     */
-    function queryAddresses(address _cursor, uint _count, bool[8] calldata _filter, bool _oldestFirst)
-        external
-        view
-        returns (address[] memory values, bool hasMore)
-    {
-        uint cursorIndex;
-        values = new address[](_count);
-        uint index = 0;
+    // /** @dev Return the values of the addresses the query finds. This function is O(n), where n is the number of addresses. This could exceed the gas limit, therefore this function should only be used for interface display and not by other contracts.
+    //  *  @param _cursor The address from which to start iterating. To start from either the oldest or newest item.
+    //  *  @param _count The number of addresses to return.
+    //  *  @param _filter The filter to use. Each element of the array in sequence means:
+    //  *  - Include absent addresses in result.
+    //  *  - Include registered addresses in result.
+    //  *  - Include addresses with registration requests that are not disputed in result.
+    //  *  - Include addresses with clearing requests that are not disputed in result.
+    //  *  - Include disputed addresses with registration requests in result.
+    //  *  - Include disputed addresses with clearing requests in result.
+    //  *  - Include addresses submitted by the caller.
+    //  *  - Include addresses challenged by the caller.
+    //  *  @param _oldestFirst Whether to sort from oldest to the newest item.
+    //  *  @return The values of the addresses found and whether there are more addresses for the current filter and sort.
+    //  */
+    // function queryAddresses(address _cursor, uint _count, bool[8] calldata _filter, bool _oldestFirst)
+    //     external
+    //     view
+    //     returns (address[] memory values, bool hasMore)
+    // {
+    //     uint cursorIndex;
+    //     values = new address[](_count);
+    //     uint index = 0;
 
-        if (_cursor == address(0))
-            cursorIndex = 0;
-        else {
-            for (uint j = 0; j < addressList.length; j++) {
-                if (addressList[j] == _cursor) {
-                    cursorIndex = j;
-                    break;
-                }
-            }
-            require(cursorIndex != 0, "The cursor is invalid.");
-        }
+    //     if (_cursor == address(0))
+    //         cursorIndex = 0;
+    //     else {
+    //         for (uint j = 0; j < addressList.length; j++) {
+    //             if (addressList[j] == _cursor) {
+    //                 cursorIndex = j;
+    //                 break;
+    //             }
+    //         }
+    //         require(cursorIndex != 0, "The cursor is invalid.");
+    //     }
 
-        for (
-                uint i = cursorIndex == 0 ? (_oldestFirst ? 0 : 1) : (_oldestFirst ? cursorIndex + 1 : addressList.length - cursorIndex + 1);
-                _oldestFirst ? i < addressList.length : i <= addressList.length;
-                i++
-            ) { // Oldest or newest first.
-            Address storage addr = addresses[addressList[_oldestFirst ? i : addressList.length - i]];
-            Request storage request = addr.requests[addr.requests.length - 1];
-            if (
-                /* solium-disable operator-whitespace */
-                (_filter[0] && addr.status == AddressStatus.Absent) ||
-                (_filter[1] && addr.status == AddressStatus.Registered) ||
-                (_filter[2] && addr.status == AddressStatus.RegistrationRequested && !request.disputed) ||
-                (_filter[3] && addr.status == AddressStatus.ClearingRequested && !request.disputed) ||
-                (_filter[4] && addr.status == AddressStatus.RegistrationRequested && request.disputed) ||
-                (_filter[5] && addr.status == AddressStatus.ClearingRequested && request.disputed) ||
-                (_filter[6] && request.parties[uint(Party.Requester)] == msg.sender) || // My Submissions.
-                (_filter[7] && request.parties[uint(Party.Challenger)] == msg.sender) // My Challenges.
-                /* solium-enable operator-whitespace */
-            ) {
-                if (index < _count) {
-                    values[index] = addressList[_oldestFirst ? i : addressList.length - i];
-                    index++;
-                } else {
-                    hasMore = true;
-                    break;
-                }
-            }
-        }
-    }
+    //     for (
+    //             uint i = cursorIndex == 0 ? (_oldestFirst ? 0 : 1) : (_oldestFirst ? cursorIndex + 1 : addressList.length - cursorIndex + 1);
+    //             _oldestFirst ? i < addressList.length : i <= addressList.length;
+    //             i++
+    //         ) { // Oldest or newest first.
+    //         Address storage addr = addresses[addressList[_oldestFirst ? i : addressList.length - i]];
+    //         Request storage request = addr.requests[addr.requests.length - 1];
+    //         if (
+    //             /* solium-disable operator-whitespace */
+    //             (_filter[0] && addr.status == AddressStatus.Absent) ||
+    //             (_filter[1] && addr.status == AddressStatus.Registered) ||
+    //             (_filter[2] && addr.status == AddressStatus.RegistrationRequested && !request.disputed) ||
+    //             (_filter[3] && addr.status == AddressStatus.ClearingRequested && !request.disputed) ||
+    //             (_filter[4] && addr.status == AddressStatus.RegistrationRequested && request.disputed) ||
+    //             (_filter[5] && addr.status == AddressStatus.ClearingRequested && request.disputed) ||
+    //             (_filter[6] && request.parties[uint(Party.Requester)] == msg.sender) || // My Submissions.
+    //             (_filter[7] && request.parties[uint(Party.Challenger)] == msg.sender) // My Challenges.
+    //             /* solium-enable operator-whitespace */
+    //         ) {
+    //             if (index < _count) {
+    //                 values[index] = addressList[_oldestFirst ? i : addressList.length - i];
+    //                 index++;
+    //             } else {
+    //                 hasMore = true;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
 
     /** @dev Gets the contributions made by a party for a given round of a request.
      *  @param _address The address.

@@ -868,7 +868,7 @@ contract T2CR is PermissionInterface, IArbitrable {
                     break;
                 }
             }
-            require(cursorIndex  != 0, "The cursor is invalid.");
+            require(cursorIndex != 0, "The cursor is invalid.");
         }
 
         for (

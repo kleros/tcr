@@ -1,24 +1,16 @@
 /* eslint-disable no-undef */ // Avoid the linter considering truffle elements as undef.
-const {
-  expectThrow
-} = require('openzeppelin-solidity/test/helpers/expectThrow')
-const {
-  increaseTime
-} = require('openzeppelin-solidity/test/helpers/increaseTime')
+const { expectThrow, increaseTime } = require('../utils')
 
 const T2CR = artifacts.require('./T2CR.sol')
-const AppealableArbitrator = artifacts.require(
-  './standard/arbitration/AppealableArbitrator.sol'
-)
 const EnhancedAppealableArbitrator = artifacts.require(
-  './standard/arbitration/EnhancedAppealableArbitrator.sol'
+  './mock/EnhancedAppealableArbitrator.sol'
 )
 
 contract('T2CR', function(accounts) {
   const governor = accounts[0]
   const partyA = accounts[2]
   const partyB = accounts[8]
-  const arbitratorExtraData = 0x0
+  const arbitratorExtraData = []
   const baseDeposit = 10 ** 10
   const arbitrationCost = 1000
   const sharedStakeMultiplier = 10000
@@ -29,11 +21,11 @@ contract('T2CR', function(accounts) {
   const clearingMetaEvidence = 'clearingMetaEvidence.json'
   const appealPeriodDuration = 1001
 
-  let appealableArbitrator
   let enhancedAppealableArbitrator
   let t2cr
   let tokenID
 
+  /* eslint-disable sort-keys */
   const TOKEN_STATUS = {
     Absent: 0,
     Registered: 1,
@@ -42,18 +34,10 @@ contract('T2CR', function(accounts) {
   }
 
   const deployArbitrators = async () => {
-    appealableArbitrator = await AppealableArbitrator.new(
-      arbitrationCost, // _arbitrationCost
-      governor, // _arbitrator
-      null, // _arbitratorExtraData
-      appealPeriodDuration // _appealPeriodDuration
-    )
-    await appealableArbitrator.changeArbitrator(appealableArbitrator.address)
-
     enhancedAppealableArbitrator = await EnhancedAppealableArbitrator.new(
       arbitrationCost, // _arbitrationCost
       governor, // _arbitrator
-      null, // _arbitratorExtraData
+      [], // _arbitratorExtraData
       appealPeriodDuration, // _timeOut
       {
         from: governor
@@ -881,7 +865,7 @@ contract('T2CR', function(accounts) {
   describe('governance', () => {
     beforeEach(async () => {
       await deployArbitrators()
-      await deployArbitrableTokenList(appealableArbitrator)
+      await deployArbitrableTokenList(enhancedAppealableArbitrator)
     })
 
     describe('caller is governor', () => {
