@@ -3,7 +3,11 @@ module.exports = {
   // to customize your Truffle configuration!
   compilers: {
     solc: {
-      version: '0.5.8'
+      version: '0.5.8',
+      optimizer: {
+        enabled: true,
+        runs: 1000
+      }
     }
   },
   mocha: {
@@ -21,7 +25,7 @@ module.exports = {
     kovan: {
       confirmations: 2,
       gas: 4200000,
-      gasPrice: 20000000000,
+      gasPrice: 200000000,
       network_id: 42
     }
   }

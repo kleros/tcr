@@ -109,8 +109,8 @@ contract AddressTCR is PermissionInterface, IArbitrable {
 
     /* Modifiers */
 
-    modifier onlyGovernor {require(msg.sender == governor, "The caller must be the governor."); _;}
-    modifier onlyArbitrator {require(msg.sender == address(arbitrator), "Can only be called by the arbitrator."); _;}
+    modifier onlyGovernor {require(msg.sender == governor); _;}
+    modifier onlyArbitrator {require(msg.sender == address(arbitrator)); _;}
 
     /* Events */
 
@@ -144,15 +144,6 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         bool _disputed,
         bool _appealed
     );
-
-    /** @dev Emitted when a reimbursements and/or contribution rewards are withdrawn.
-     *  @param _address The address from which the withdrawal was made.
-     *  @param _contributor The address that sent the contribution.
-     *  @param _request The request from which the withdrawal was made.
-     *  @param _round The round from which the reward was taken.
-     *  @param _value The value of the reward.
-     */
-    event RewardWithdrawal(address indexed _address, address indexed _contributor, uint indexed _request, uint _round, uint _value);
 
     /** @dev To be raised when evidence are submitted. Should point to the ressource (evidences are not to be stored on chain due to gas considerations).
      *  @param _arbitrator The arbitrator of the contract.
@@ -247,7 +238,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         else if (addr.status == AddressStatus.Registered)
             addr.status = AddressStatus.ClearingRequested;
         else
-            revert("Address already has a pending request.");
+            revert();
 
         // Setup request.
         Request storage request = addr.requests[addr.requests.length++];
@@ -263,7 +254,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
         uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(requesterBaseDeposit);
         contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
-        require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
+        require(round.paidFees[uint(Party.Requester)] >= totalCost);
         round.hasPaid[uint(Party.Requester)] = true;
 
         emit AddressStatusChange(
@@ -283,12 +274,11 @@ contract AddressTCR is PermissionInterface, IArbitrable {
     function challengeRequest(address _address, string calldata _evidence) external payable {
         Address storage addr = addresses[_address];
         require(
-            addr.status == AddressStatus.RegistrationRequested || addr.status == AddressStatus.ClearingRequested,
-            "The address must have a pending request."
+            addr.status == AddressStatus.RegistrationRequested || addr.status == AddressStatus.ClearingRequested
         );
         Request storage request = addr.requests[addr.requests.length - 1];
-        require(now - request.submissionTime <= challengePeriodDuration, "Challenges must occur during the challenge period.");
-        require(!request.disputed, "The request should not have already been disputed.");
+        require(now - request.submissionTime <= challengePeriodDuration);
+        require(!request.disputed);
 
         // Take the deposit and save the challenger's address.
         request.parties[uint(Party.Challenger)] = msg.sender;
@@ -297,7 +287,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
         uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(challengerBaseDeposit);
         contribute(round, Party.Challenger, msg.sender, msg.value, totalCost);
-        require(round.paidFees[uint(Party.Challenger)] >= totalCost, "You must fully fund your side.");
+        require(round.paidFees[uint(Party.Challenger)] >= totalCost);
         round.hasPaid[uint(Party.Challenger)] = true;
 
         // Raise a dispute.
@@ -336,15 +326,13 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         require(_side == Party.Requester || _side == Party.Challenger); // solium-disable-line error-reason
         Address storage addr = addresses[_address];
         require(
-            addr.status == AddressStatus.RegistrationRequested || addr.status == AddressStatus.ClearingRequested,
-            "The address must have a pending request."
+            addr.status == AddressStatus.RegistrationRequested || addr.status == AddressStatus.ClearingRequested
         );
         Request storage request = addr.requests[addr.requests.length - 1];
-        require(request.disputed, "A dispute must have been raised to fund an appeal.");
+        require(request.disputed);
         (uint appealPeriodStart, uint appealPeriodEnd) = request.arbitrator.appealPeriod(request.disputeID);
         require(
-            now >= appealPeriodStart && now < appealPeriodEnd,
-            "Contributions must be made within the appeal period."
+            now >= appealPeriodStart && now < appealPeriodEnd
         );
 
 
@@ -356,7 +344,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
             loser = Party.Challenger;
         else if (winner == Party.Challenger)
             loser = Party.Requester;
-        require(!(_side==loser) || (now-appealPeriodStart < (appealPeriodEnd-appealPeriodStart)/2), "The loser must contribute during the first half of the appeal period.");
+        require(!(_side==loser) || (now-appealPeriodStart < (appealPeriodEnd-appealPeriodStart)/2));
 
         uint multiplier;
         if (_side == winner)
@@ -427,43 +415,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
             round.contributions[_beneficiary][uint(request.ruling)] = 0;
         }
 
-        emit RewardWithdrawal(_address, _beneficiary, _request, _round,  reward);
         _beneficiary.send(reward); // It is the user responsibility to accept ETH.
-    }
-
-    /** @dev Withdraws rewards and reimbursements of multiple rounds at once. This function is O(n) where n is the number of rounds. This could exceed gas limits, therefore this function should be used only as a utility and not be relied upon by other contracts.
-     *  @param _beneficiary The address that made contributions to the request.
-     *  @param _address The address with funds to be withdrawn.
-     *  @param _request The request from which to withdraw contributions.
-     *  @param _cursor The round from where to start withdrawing.
-     *  @param _count Rounds greater or equal to this value won't be withdrawn. If set to 0 or a value larger than the number of rounds, iterates until the last round.
-     */
-    function batchRoundWithdraw(address payable _beneficiary, address _address, uint _request, uint _cursor, uint _count) public {
-        Address storage addr = addresses[_address];
-        Request storage request = addr.requests[_request];
-        for (uint i = _cursor; i<request.rounds.length && (_count==0 || i<_count); i++)
-            withdrawFeesAndRewards(_beneficiary, _address, _request, i);
-    }
-
-    /** @dev Withdraws rewards and reimbursements of multiple requests at once. This function is O(n*m) where n is the number of requests and m is the number of rounds. This could exceed gas limits, therefore this function should be used only as a utility and not be relied upon by other contracts.
-     *  @param _beneficiary The address that made contributions to the request.
-     *  @param _address The address with funds to be withdrawn.
-     *  @param _cursor The request from which to start withdrawing.
-     *  @param _count Requests greater or equal to this value won't be withdrawn. If set to 0 or a value larger than the number of request, iterates until the last request.
-     *  @param _roundCursor The round of each request from where to start withdrawing.
-     *  @param _roundCount Rounds greater or equal to this value won't be withdrawn. If set to 0 or a value larger than the number of rounds a request has, iteration for that request will stop at the last round.
-     */
-    function batchRequestWithdraw(
-        address payable _beneficiary,
-        address _address,
-        uint _cursor,
-        uint _count,
-        uint _roundCursor,
-        uint _roundCount
-    ) external {
-        Address storage addr = addresses[_address];
-        for (uint i = _cursor; i<addr.requests.length && (_count==0 || i<_count); i++)
-            batchRoundWithdraw(_beneficiary, _address, i, _roundCursor, _roundCount);
     }
 
     /** @dev Executes a request if the challenge period passed and no one challenged the request.
@@ -473,17 +425,16 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         Address storage addr = addresses[_address];
         Request storage request = addr.requests[addr.requests.length - 1];
         require(
-            now - request.submissionTime > challengePeriodDuration,
-            "Time to challenge the request must have passed."
+            now - request.submissionTime > challengePeriodDuration
         );
-        require(!request.disputed, "The request should not be disputed.");
+        require(!request.disputed);
 
         if (addr.status == AddressStatus.RegistrationRequested)
             addr.status = AddressStatus.Registered;
         else if (addr.status == AddressStatus.ClearingRequested)
             addr.status = AddressStatus.Absent;
         else
-            revert("There must be a request.");
+            revert();
 
         request.resolved = true;
         address payable beneficiary = address(uint160(request.parties[uint(Party.Requester)]));
@@ -535,7 +486,7 @@ contract AddressTCR is PermissionInterface, IArbitrable {
     function submitEvidence(address _address, string calldata _evidence) external {
         Address storage addr = addresses[_address];
         Request storage request = addr.requests[addr.requests.length - 1];
-        require(!request.resolved, "The dispute must not already be resolved.");
+        require(!request.resolved);
 
         emit Evidence(request.arbitrator, uint(keccak256(abi.encodePacked(_address,addr.requests.length - 1))), msg.sender, _evidence);
     }
@@ -800,71 +751,71 @@ contract AddressTCR is PermissionInterface, IArbitrable {
         }
     }
 
-    // /** @dev Return the values of the addresses the query finds. This function is O(n), where n is the number of addresses. This could exceed the gas limit, therefore this function should only be used for interface display and not by other contracts.
-    //  *  @param _cursor The address from which to start iterating. To start from either the oldest or newest item.
-    //  *  @param _count The number of addresses to return.
-    //  *  @param _filter The filter to use. Each element of the array in sequence means:
-    //  *  - Include absent addresses in result.
-    //  *  - Include registered addresses in result.
-    //  *  - Include addresses with registration requests that are not disputed in result.
-    //  *  - Include addresses with clearing requests that are not disputed in result.
-    //  *  - Include disputed addresses with registration requests in result.
-    //  *  - Include disputed addresses with clearing requests in result.
-    //  *  - Include addresses submitted by the caller.
-    //  *  - Include addresses challenged by the caller.
-    //  *  @param _oldestFirst Whether to sort from oldest to the newest item.
-    //  *  @return The values of the addresses found and whether there are more addresses for the current filter and sort.
-    //  */
-    // function queryAddresses(address _cursor, uint _count, bool[8] calldata _filter, bool _oldestFirst)
-    //     external
-    //     view
-    //     returns (address[] memory values, bool hasMore)
-    // {
-    //     uint cursorIndex;
-    //     values = new address[](_count);
-    //     uint index = 0;
+    /** @dev Return the values of the addresses the query finds. This function is O(n), where n is the number of addresses. This could exceed the gas limit, therefore this function should only be used for interface display and not by other contracts.
+     *  @param _cursor The address from which to start iterating. To start from either the oldest or newest item.
+     *  @param _count The number of addresses to return.
+     *  @param _filter The filter to use. Each element of the array in sequence means:
+     *  - Include absent addresses in result.
+     *  - Include registered addresses in result.
+     *  - Include addresses with registration requests that are not disputed in result.
+     *  - Include addresses with clearing requests that are not disputed in result.
+     *  - Include disputed addresses with registration requests in result.
+     *  - Include disputed addresses with clearing requests in result.
+     *  - Include addresses submitted by the caller.
+     *  - Include addresses challenged by the caller.
+     *  @param _oldestFirst Whether to sort from oldest to the newest item.
+     *  @return The values of the addresses found and whether there are more addresses for the current filter and sort.
+     */
+    function queryAddresses(address _cursor, uint _count, bool[8] calldata _filter, bool _oldestFirst)
+        external
+        view
+        returns (address[] memory values, bool hasMore)
+    {
+        uint cursorIndex;
+        values = new address[](_count);
+        uint index = 0;
 
-    //     if (_cursor == address(0))
-    //         cursorIndex = 0;
-    //     else {
-    //         for (uint j = 0; j < addressList.length; j++) {
-    //             if (addressList[j] == _cursor) {
-    //                 cursorIndex = j;
-    //                 break;
-    //             }
-    //         }
-    //         require(cursorIndex != 0, "The cursor is invalid.");
-    //     }
+        if (_cursor == address(0))
+            cursorIndex = 0;
+        else {
+            for (uint j = 0; j < addressList.length; j++) {
+                if (addressList[j] == _cursor) {
+                    cursorIndex = j;
+                    break;
+                }
+            }
+            require(cursorIndex != 0);
+        }
 
-    //     for (
-    //             uint i = cursorIndex == 0 ? (_oldestFirst ? 0 : 1) : (_oldestFirst ? cursorIndex + 1 : addressList.length - cursorIndex + 1);
-    //             _oldestFirst ? i < addressList.length : i <= addressList.length;
-    //             i++
-    //         ) { // Oldest or newest first.
-    //         Address storage addr = addresses[addressList[_oldestFirst ? i : addressList.length - i]];
-    //         Request storage request = addr.requests[addr.requests.length - 1];
-    //         if (
-    //             /* solium-disable operator-whitespace */
-    //             (_filter[0] && addr.status == AddressStatus.Absent) ||
-    //             (_filter[1] && addr.status == AddressStatus.Registered) ||
-    //             (_filter[2] && addr.status == AddressStatus.RegistrationRequested && !request.disputed) ||
-    //             (_filter[3] && addr.status == AddressStatus.ClearingRequested && !request.disputed) ||
-    //             (_filter[4] && addr.status == AddressStatus.RegistrationRequested && request.disputed) ||
-    //             (_filter[5] && addr.status == AddressStatus.ClearingRequested && request.disputed) ||
-    //             (_filter[6] && request.parties[uint(Party.Requester)] == msg.sender) || // My Submissions.
-    //             (_filter[7] && request.parties[uint(Party.Challenger)] == msg.sender) // My Challenges.
-    //             /* solium-enable operator-whitespace */
-    //         ) {
-    //             if (index < _count) {
-    //                 values[index] = addressList[_oldestFirst ? i : addressList.length - i];
-    //                 index++;
-    //             } else {
-    //                 hasMore = true;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
+        for (
+                uint i = cursorIndex == 0 ? (_oldestFirst ? 0 : 1) : (_oldestFirst ? cursorIndex + 1 : addressList.length - cursorIndex + 1);
+                _oldestFirst ? i < addressList.length : i <= addressList.length;
+                i++
+            ) { // Oldest or newest first.
+            Address storage addr = addresses[addressList[_oldestFirst ? i : addressList.length - i]];
+            Request storage request = addr.requests[addr.requests.length - 1];
+            if (
+                /* solium-disable operator-whitespace */
+                (_filter[0] && addr.status == AddressStatus.Absent) ||
+                (_filter[1] && addr.status == AddressStatus.Registered) ||
+                (_filter[2] && addr.status == AddressStatus.RegistrationRequested && !request.disputed) ||
+                (_filter[3] && addr.status == AddressStatus.ClearingRequested && !request.disputed) ||
+                (_filter[4] && addr.status == AddressStatus.RegistrationRequested && request.disputed) ||
+                (_filter[5] && addr.status == AddressStatus.ClearingRequested && request.disputed) ||
+                (_filter[6] && request.parties[uint(Party.Requester)] == msg.sender) || // My Submissions.
+                (_filter[7] && request.parties[uint(Party.Challenger)] == msg.sender) // My Challenges.
+                /* solium-enable operator-whitespace */
+            ) {
+                if (index < _count) {
+                    values[index] = addressList[_oldestFirst ? i : addressList.length - i];
+                    index++;
+                } else {
+                    hasMore = true;
+                    break;
+                }
+            }
+        }
+    }
 
     /** @dev Gets the contributions made by a party for a given round of a request.
      *  @param _address The address.

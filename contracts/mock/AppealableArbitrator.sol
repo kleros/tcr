@@ -9,12 +9,13 @@
 pragma solidity ^0.5.8;
 
 import "./CentralizedArbitrator.sol";
+import "./Arbitrable.sol";
 
 /**
  *  @title AppealableArbitrator
  *  @dev A centralized arbitrator that can be appealed.
  */
-contract AppealableArbitrator is CentralizedArbitrator {
+contract AppealableArbitrator is CentralizedArbitrator, Arbitrable {
     /* Structs */
 
     struct AppealDispute {
@@ -49,7 +50,7 @@ contract AppealableArbitrator is CentralizedArbitrator {
         Arbitrator _arbitrator,
         bytes memory _arbitratorExtraData,
         uint _timeOut
-    ) public CentralizedArbitrator(_arbitrationPrice) {
+    ) public CentralizedArbitrator(_arbitrationPrice) Arbitrable(_arbitrator, _arbitratorExtraData) {
         timeOut = _timeOut;
     }
 
