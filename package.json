@@ -11,7 +11,7 @@
     "prettify": "kathari prettify",
     "lint:sol": "kathari lint:sol",
     "lint:js": "kathari lint:js",
-    "lint": "yarn run lint:sol && yarn run lint:js",
+    "lint": "yarn run lint:sol",
     "test:ganache": "ganache-cli --gasLimit 8000000  --defaultBalanceEther 10000 --quiet &",
     "test:truffle": "truffle test",
     "test": "run-p test:*",
