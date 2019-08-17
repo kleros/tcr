@@ -16,7 +16,7 @@
     "test:truffle": "truffle test",
     "test": "run-p test:*",
     "cz": "kathari cz",
-    "build": "truffle compile --all"
+    "build": "truffle compile"
   },
   "commitlint": {
     "extends": [
@@ -34,6 +34,10 @@
     "eth-gas-reporter": "^0.2.0",
     "ganache-cli": "^6.4.4",
     "husky": "^2.4.1",
+    "npm-run-all": "^4.1.5",
     "truffle": "^5.0.25"
+  },
+  "dependencies": {
+    "@kleros/erc-792": "^1.0.0"
   }
 }
