@@ -2,14 +2,16 @@
 
 pragma solidity ^0.5.10;
 
-import "./Arbitrable.sol";
+import { IArbitrable, Arbitrator } from "@kleros/erc-792/contracts/Arbitrator.sol";
+import "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
 import "./CappedMath.sol";
 
 /**
  *  @title GeneralizedTCR
  *  This contract is a curated registry for any types of items. Just like TCR contract it uses request-challenge protocol and crowdfunding, but also has new features such as badges and request cancellation.
+ *  The badges are queried through queryItems function of connnected TCR which address can be set either in a constructor or in a respective governance function.
  */
-contract GeneralizedTCR is Arbitrable {
+contract GeneralizedTCR is  IArbitrable, IEvidence {
     using CappedMath for uint;
 
     /* Enums */
@@ -30,18 +32,9 @@ contract GeneralizedTCR is Arbitrable {
     /* Structs */
 
     struct Item {
-        bytes itemData; // The data describing the item.
+        bytes data; // The data describing the item.
         Status status; // The status of the item.
         Request[] requests; // List of status change requests made for the item.
-        address[] badgeList; // List of badges attribute to the item.
-        mapping(address => Badge) badges; // Maps the badge address to its data. badges[_badgeAddress].
-        address pendingBadge; // The address of the badge which status change is requested.
-        mapping(address => mapping(uint => uint)) arbitratorDisputeIDtoRequestID; // Maps a dispute ID to the ID of the disputed request. arbitratorDisputeIDtoRequestID[arbitrator][disputeID].
-    }
-
-    struct Badge {
-        Status status; // The status of the badge.
-        bool onTheList; // Whether the badge has already been added to the list or not.
     }
 
     // Some arrays below have 3 elements to map with the Party enums for better readability:
@@ -52,13 +45,12 @@ contract GeneralizedTCR is Arbitrable {
         bool disputed; // True if a dispute was raised.
         uint disputeID; // ID of the dispute, if any.
         uint submissionTime; // Time when the request was made. Used to track when the challenge period ends.
-        bool resolved; // True if the request was executed and/or any disputes raised were resolved.
+        bool resolved; // True if the request was executed and/or any raised disputes were resolved.
         address payable[3] parties; // Address of requester and challenger, if any.
         Round[] rounds; // Tracks each round of a dispute.
         Party ruling; // The final ruling given, if any.
         Arbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
-        bool badgeRequest; // Whether this is a badge-related request or not.
     }
 
     struct Round {
@@ -69,6 +61,10 @@ contract GeneralizedTCR is Arbitrable {
     }
 
     /* Storage */
+
+    GeneralizedTCR public connectedTCR; // TCR that contains the addresses of other TCRs related to this one.
+    Arbitrator public arbitrator; // The arbitrator contract.
+    bytes public arbitratorExtraData; // Extra data to require particular dispute and appeal behaviour.
 
     uint RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
 
@@ -93,91 +89,25 @@ contract GeneralizedTCR is Arbitrable {
 
     modifier onlyGovernor {require(msg.sender == governor, "The caller must be the governor."); _;}
 
-    /* Events */
-
-    /** @dev Emitted when a party submits a new item.
-     *  @param _itemData The data describing the item.
-     *  @param _itemID Hash of items's data that is used as its ID.
-     */
-    event ItemSubmitted(bytes _itemData, bytes32 _itemID);
-
-    /** @dev Emitted when a party submits a new badge.
-     *  @param _itemID The ID of the item related to the badge.
-     *  @param _badge The address if the adding badge.
-     */
-    event BadgeSubmitted(bytes32 _itemID, address _badge);
-
-    /** @dev Emitted when a party makes a request to change a status of item/badge.
-     *  @param _itemID The ID of the affected item.
-     *  @param _registrationRequest Whether the request is a registration request. False means it is a clearing request.
-     *  @param _badgeRequest Whether the request affects the item or one of its badges.
-     */
-    event RequestSubmitted(bytes32 indexed _itemID, bool _registrationRequest, bool _badgeRequest);
-
-    /**
-     *  @dev Emitted when a party makes a request, dispute or appeals are raised, or when a request is resolved. Is only emitted when request is item-related.
-     *  @param _requester Address of the party that submitted the request.
-     *  @param _challenger Address of the party that has challenged the request, if any.
-     *  @param _itemID The ID of the affected item.
-     *  @param _status The status of the item.
-     *  @param _disputed Whether the item is disputed.
-     *  @param _appealed Whether the current round was appealed.
-     */
-    event ItemStatusChange(
-        address indexed _requester,
-        address indexed _challenger,
-        bytes32 indexed _itemID,
-        Status _status,
-        bool _disputed,
-        bool _appealed
-    );
-
-    /**
-     *  @dev Emitted when a party makes a request, dispute or appeals are raised, or when a request is resolved. Is only emitted when request is badge-related.
-     *  @param _requester Address of the party that submitted the request.
-     *  @param _challenger Address of the party that has challenged the request, if any.
-     *  @param _itemID The ID of item which the badge belongs to.
-     *  @param _badge The address of the affected badge.
-     *  @param _status The status of the badge.
-     *  @param _disputed Whether the badge is disputed.
-     *  @param _appealed Whether the current round was appealed.
-     */
-    event BadgeStatusChange(
-        address indexed _requester,
-        address indexed _challenger,
-        bytes32 indexed _itemID,
-        address _badge,
-        Status _status,
-        bool _disputed,
-        bool _appealed
-    );
-
-    /** @dev Emitted when a reimbursements and/or contribution rewards are withdrawn.
-     *  @param _itemID The ID of the item from which the withdrawal was made.
-     *  @param _contributor The address that sent the contribution.
-     *  @param _request The request from which the withdrawal was made.
-     *  @param _round The round from which the reward was taken.
-     *  @param _value The value of the reward.
-     */
-    event RewardWithdrawal(bytes32 indexed _itemID, address indexed _contributor, uint indexed _request, uint _round, uint _value);
-
     /**
      *  @dev Constructs the arbitrable curated registry.
      *  @param _arbitrator The trusted arbitrator to resolve potential disputes.
      *  @param _arbitratorExtraData Extra data for the trusted arbitrator contract.
+     *  @param _connectedTCR The address of the TCR that stores related TCR addresses. This parameter can be left empty.
      *  @param _registrationMetaEvidence The URI of the meta evidence object for registration requests.
      *  @param _clearingMetaEvidence The URI of the meta evidence object for clearing requests.
      *  @param _governor The trusted governor of this contract.
      *  @param _requesterBaseDeposit The base deposit to make a request.
      *  @param _challengerBaseDeposit The base deposit to challenge a request.
      *  @param _challengePeriodDuration The time in seconds, parties have to challenge a request.
-     *  @param _sharedStakeMultiplier Multiplier of the arbitration cost that each party must pay as fee stake for a round when there isn't a winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate). In basis points.
+     *  @param _sharedStakeMultiplier Multiplier of the arbitration cost that each party must pay as fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate). In basis points.
      *  @param _winnerStakeMultiplier Multiplier of the arbitration cost that the winner has to pay as fee stake for a round in basis points.
      *  @param _loserStakeMultiplier Multiplier of the arbitration cost that the loser has to pay as fee stake for a round in basis points.
      */
     constructor(
         Arbitrator _arbitrator,
         bytes memory _arbitratorExtraData,
+        GeneralizedTCR _connectedTCR,
         string memory _registrationMetaEvidence,
         string memory _clearingMetaEvidence,
         address _governor,
@@ -187,10 +117,13 @@ contract GeneralizedTCR is Arbitrable {
         uint _sharedStakeMultiplier,
         uint _winnerStakeMultiplier,
         uint _loserStakeMultiplier
-    ) Arbitrable(_arbitrator, _arbitratorExtraData) public {
+    ) public {
         emit MetaEvidence(0, _registrationMetaEvidence);
         emit MetaEvidence(1, _clearingMetaEvidence);
 
+        arbitrator = _arbitrator;
+        arbitratorExtraData = _arbitratorExtraData;
+        connectedTCR = _connectedTCR;
         governor = _governor;
         requesterBaseDeposit = _requesterBaseDeposit;
         challengerBaseDeposit = _challengerBaseDeposit;
@@ -217,8 +150,7 @@ contract GeneralizedTCR is Arbitrable {
 
         Item storage item = items[itemID];
         item.status = Status.RegistrationRequested;
-        item.itemData = _item;
-        emit ItemSubmitted(_item, itemID);
+        item.data = _item;
 
         Request storage request = item.requests[item.requests.length++];
         request.parties[uint(Party.Requester)] = msg.sender;
@@ -227,22 +159,11 @@ contract GeneralizedTCR is Arbitrable {
         request.arbitratorExtraData = arbitratorExtraData;
         Round storage round = request.rounds[request.rounds.length++];
 
-        emit RequestSubmitted(itemID, item.status == Status.RegistrationRequested, false);
-
         uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
         uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(requesterBaseDeposit);
         contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
         require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Requester)] = true;
-
-        emit ItemStatusChange(
-            request.parties[uint(Party.Requester)],
-            address(0x0),
-            itemID,
-            item.status,
-            false,
-            false
-        );
     }
 
     /** @dev Submits a request to change item's status. Accepts enough ETH to cover potential dispute, reimburses the rest.
@@ -252,8 +173,8 @@ contract GeneralizedTCR is Arbitrable {
         external
         payable
     {
-
         Item storage item = items[_itemID];
+        require(itemIDs[_itemID], "Item should already be on the list");
         if (item.status == Status.Absent)
             item.status = Status.RegistrationRequested;
         else if (item.status == Status.Registered)
@@ -268,90 +189,26 @@ contract GeneralizedTCR is Arbitrable {
         request.arbitratorExtraData = arbitratorExtraData;
         Round storage round = request.rounds[request.rounds.length++];
 
-        emit RequestSubmitted(_itemID, item.status == Status.RegistrationRequested, false);
-
         uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
         uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(requesterBaseDeposit);
         contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
         require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Requester)] = true;
-
-        emit ItemStatusChange(
-            request.parties[uint(Party.Requester)],
-            address(0x0),
-            _itemID,
-            item.status,
-            false,
-            false
-        );
-    }
-
-    /** @dev Submits a request to change a status of the badge. Adds badge to the list if it hasn't been added yet. Accepts enough ETH to cover potential dispute, reimburses the rest.
-     *  @param _itemID The ID of the item which the badge belongs to.
-     *  @param _badge Address of the affected badge.
-     */
-    function requestBadge(bytes32 _itemID, address _badge) external payable {
-        Item storage item = items[_itemID];
-        require(item.status == Status.Registered, "Can only add badges to registered items without pending requests");
-        require(item.pendingBadge == address(0), "Already have pending badge request");
-
-        Badge storage badge = item.badges[_badge];
-        if (!badge.onTheList) {
-            item.badgeList.push(_badge);
-            badge.onTheList = true;
-            emit BadgeSubmitted(_itemID, _badge);
-        }
-
-        if (badge.status == Status.Absent)
-            badge.status = Status.RegistrationRequested;
-        else if (badge.status == Status.Registered)
-            badge.status = Status.ClearingRequested;
-        else
-            revert("Badge already has a pending request.");
-
-        item.pendingBadge = _badge;
-        Request storage request = item.requests[item.requests.length++];
-        request.parties[uint(Party.Requester)] = msg.sender;
-        request.submissionTime = now;
-        request.arbitrator = arbitrator;
-        request.arbitratorExtraData = arbitratorExtraData;
-        request.badgeRequest = true;
-        Round storage round = request.rounds[request.rounds.length++];
-
-        emit RequestSubmitted(_itemID, badge.status == Status.RegistrationRequested, true);
-
-        uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
-        uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(requesterBaseDeposit);
-        contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
-        require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
-        round.hasPaid[uint(Party.Requester)] = true;
-
-        emit BadgeStatusChange(
-            request.parties[uint(Party.Requester)],
-            address(0x0),
-            _itemID,
-            _badge,
-            badge.status,
-            false,
-            false
-        );
     }
 
     /** @dev Challenges the request of the item. Accepts enough ETH to cover potential dispute, reimburses the rest.
      *  @param _itemID The ID of the item which request to challenge.
      *  @param _evidence A link to an evidence using its URI. Ignored if not provided or if not enough funds were provided to create a dispute.
-     *  @param _request The ID of the request to challenge.
      */
-    function challengeRequest(bytes32 _itemID, string calldata _evidence, uint _request) external payable {
+    function challengeRequest(bytes32 _itemID, string calldata _evidence) external payable {
         Item storage item = items[_itemID];
 
         require(
-            item.status == Status.RegistrationRequested || item.status == Status.ClearingRequested || item.pendingBadge != address(0),
+            item.status == Status.RegistrationRequested || item.status == Status.ClearingRequested,
             "The item must have a pending request."
         );
 
-        Request storage request = item.requests[_request];
-        require(!request.resolved, "Can't challenger resolved requests");
+        Request storage request = item.requests[item.requests.length - 1];
         require(now - request.submissionTime <= challengePeriodDuration, "Challenges must occur during the challenge period.");
         require(!request.disputed, "The request should not have already been disputed.");
 
@@ -367,64 +224,35 @@ contract GeneralizedTCR is Arbitrable {
         // Raise a dispute.
         request.disputeID = request.arbitrator.createDispute.value(arbitrationCost)(RULING_OPTIONS, request.arbitratorExtraData);
         arbitratorDisputeIDToItem[address(request.arbitrator)][request.disputeID] = _itemID;
-        item.arbitratorDisputeIDtoRequestID[address(request.arbitrator)][request.disputeID] = _request;
         request.disputed = true;
         request.rounds.length++;
         round.feeRewards = round.feeRewards.subCap(arbitrationCost);
 
-        Status status;
-        if (request.badgeRequest) {
-            Badge storage badge = item.badges[item.pendingBadge];
-            status = badge.status;
-
-            emit BadgeStatusChange(
-                request.parties[uint(Party.Requester)],
-                request.parties[uint(Party.Challenger)],
-                _itemID,
-                item.pendingBadge,
-                badge.status,
-                true,
-                false
-            );
-        } else {
-            status = item.status;
-            emit ItemStatusChange(
-                request.parties[uint(Party.Requester)],
-                request.parties[uint(Party.Challenger)],
-                _itemID,
-                item.status,
-                true,
-                false
-            );
-        }
-
         emit Dispute(
             request.arbitrator,
             request.disputeID,
-            status == Status.RegistrationRequested
+            item.status == Status.RegistrationRequested
                 ? 2 * metaEvidenceUpdates
                 : 2 * metaEvidenceUpdates + 1,
-            uint(keccak256(abi.encodePacked(_itemID, _request)))
+            uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1)))
         );
 
         if (bytes(_evidence).length > 0)
-            emit Evidence(request.arbitrator, uint(keccak256(abi.encodePacked(_itemID, _request))), msg.sender, _evidence);
+            emit Evidence(request.arbitrator, uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1))), msg.sender, _evidence);
     }
 
     /** @dev Takes up to the total amount required to fund a side of an appeal. Reimburses the rest. Creates an appeal if both sides are fully funded.
      *  @param _itemID The ID of the item which request to fund.
      *  @param _side The recipient of the contribution.
-     *  @param _request The ID of the appealed request.
      */
-    function fundAppeal(bytes32 _itemID, Party _side, uint _request) external payable {
+    function fundAppeal(bytes32 _itemID, Party _side) external payable {
         require(_side == Party.Requester || _side == Party.Challenger); // solium-disable-line error-reason
         Item storage item = items[_itemID];
         require(
-            item.status == Status.RegistrationRequested || item.status == Status.ClearingRequested || item.pendingBadge != address(0),
+            item.status == Status.RegistrationRequested || item.status == Status.ClearingRequested,
             "The item must have a pending request."
         );
-        Request storage request = item.requests[_request];
-        require(!request.resolved, "Can't fund resolved requests");
+        Request storage request = item.requests[item.requests.length - 1];
         require(request.disputed, "A dispute must have been raised to fund an appeal.");
         (uint appealPeriodStart, uint appealPeriodEnd) = request.arbitrator.appealPeriod(request.disputeID);
         require(
@@ -460,29 +288,6 @@ contract GeneralizedTCR is Arbitrable {
             request.arbitrator.appeal.value(appealCost)(request.disputeID, request.arbitratorExtraData);
             request.rounds.length++;
             round.feeRewards = round.feeRewards.subCap(appealCost);
-
-            if (request.badgeRequest) {
-                Badge storage badge = item.badges[item.pendingBadge];
-
-                emit BadgeStatusChange(
-                    request.parties[uint(Party.Requester)],
-                    request.parties[uint(Party.Challenger)],
-                    _itemID,
-                    item.pendingBadge,
-                    badge.status,
-                    true,
-                    true
-                );
-            } else {
-                emit ItemStatusChange(
-                    request.parties[uint(Party.Requester)],
-                    request.parties[uint(Party.Challenger)],
-                    _itemID,
-                    item.status,
-                    true,
-                    true
-                );
-            }
         }
     }
 
@@ -525,123 +330,54 @@ contract GeneralizedTCR is Arbitrable {
             round.contributions[_beneficiary][uint(request.ruling)] = 0;
         }
 
-        emit RewardWithdrawal(_itemID, _beneficiary, _request, _round,  reward);
         _beneficiary.send(reward); // It is the user responsibility to accept ETH.
     }
 
     /** @dev Executes a request if the challenge period passed and no one challenged the request.
      *  @param _itemID The ID of the item with the request to execute.
-     *  @param _request The request to execute.
      */
-    function executeRequest(bytes32 _itemID, uint _request) external {
+    function executeRequest(bytes32 _itemID) external {
         Item storage item = items[_itemID];
-        Request storage request = item.requests[_request];
+        Request storage request = item.requests[item.requests.length - 1];
         require(
             now - request.submissionTime > challengePeriodDuration,
             "Time to challenge the request must pass."
         );
-        require(!request.resolved, "The request should not be resolved");
         require(!request.disputed, "The request should not be disputed.");
 
-        if (request.badgeRequest) {
-            Badge storage badge = item.badges[item.pendingBadge];
-            if (badge.status == Status.RegistrationRequested)
-                badge.status = Status.Registered;
-            else if (badge.status == Status.ClearingRequested)
-                badge.status = Status.Absent;
-            else
-                revert("There must be a request.");
-
-            emit BadgeStatusChange(
-                request.parties[uint(Party.Requester)],
-                address(0),
-                _itemID,
-                item.pendingBadge,
-                badge.status,
-                false,
-                false
-            );
-
-            item.pendingBadge = address(0);
-        } else {
-
-            if (item.status == Status.RegistrationRequested)
-                item.status = Status.Registered;
-            else if (item.status == Status.ClearingRequested)
-                item.status = Status.Absent;
-            else
-                revert("There must be a request.");
-
-            emit ItemStatusChange(
-                request.parties[uint(Party.Requester)],
-                address(0),
-                _itemID,
-                item.status,
-                false,
-                false
-            );
-        }
+        if (item.status == Status.RegistrationRequested)
+            item.status = Status.Registered;
+        else if (item.status == Status.ClearingRequested)
+            item.status = Status.Absent;
+        else
+            revert("There must be a request.");
 
         request.resolved = true;
-        withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _itemID, _request, 0); // Automatically withdraw for the requester.
+        withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _itemID, item.requests.length - 1, 0); // Automatically withdraw for the requester.
     }
 
     /** @dev Cancels the request if the challenge period hasn't passed and no disputes were raised.
      *  @param _itemID The ID of the item with the request to cancel.
-     *  @param _request The request to cancel.
      */
-    function cancelRequest(bytes32 _itemID, uint _request) external {
+    function cancelRequest(bytes32 _itemID) external {
         Item storage item = items[_itemID];
-        Request storage request = item.requests[_request];
+        Request storage request = item.requests[item.requests.length - 1];
         require(
             now - request.submissionTime <= challengePeriodDuration,
             "Only allowed to cancel within challenge period."
         );
-        require(!request.resolved, "The request should not be resolved");
         require(msg.sender == request.parties[uint(Party.Requester)], "Only the requester is allowed to execute this");
         require(!request.disputed, "The request should not be disputed.");
 
-        if (request.badgeRequest) {
-            Badge storage badge = item.badges[item.pendingBadge];
-            if (badge.status == Status.RegistrationRequested)
-                badge.status = Status.Absent;
-            else if (badge.status == Status.ClearingRequested)
-                badge.status = Status.Registered;
-            else
-                revert("There must be a request.");
-
-            emit BadgeStatusChange(
-                request.parties[uint(Party.Requester)],
-                address(0),
-                _itemID,
-                item.pendingBadge,
-                badge.status,
-                false,
-                false
-            );
-
-            item.pendingBadge = address(0);
-        } else {
-
-            if (item.status == Status.RegistrationRequested)
-                item.status = Status.Absent;
-            else if (item.status == Status.ClearingRequested)
-                item.status = Status.Registered;
-            else
-                revert("There must be a request.");
-
-            emit ItemStatusChange(
-                request.parties[uint(Party.Requester)],
-                address(0),
-                _itemID,
-                item.status,
-                false,
-                false
-            );
-        }
+        if (item.status == Status.RegistrationRequested)
+            item.status = Status.Absent;
+        else if (item.status == Status.ClearingRequested)
+            item.status = Status.Registered;
+        else
+            revert("There must be a request.");
 
         request.resolved = true;
-        withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _itemID, _request, 0); // Automatically withdraw for the requester.
+        withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _itemID, item.requests.length - 1, 0); // Automatically withdraw for the requester.
     }
 
     /** @dev Give a ruling for a dispute. Can only be called by the arbitrator. TRUSTED.
@@ -653,9 +389,8 @@ contract GeneralizedTCR is Arbitrable {
         Party resultRuling = Party(_ruling);
         bytes32 itemID = arbitratorDisputeIDToItem[msg.sender][_disputeID];
         Item storage item = items[itemID];
-        uint requestID = item.arbitratorDisputeIDtoRequestID[msg.sender][_disputeID];
 
-        Request storage request = item.requests[requestID];
+        Request storage request = item.requests[item.requests.length - 1];
         Round storage round = request.rounds[request.rounds.length - 1];
         require(_ruling <= RULING_OPTIONS); // solium-disable-line error-reason
         require(address(request.arbitrator) == msg.sender); // solium-disable-line error-reason
@@ -674,14 +409,13 @@ contract GeneralizedTCR is Arbitrable {
     /** @dev Submit a reference to evidence. EVENT.
      *  @param _itemID The item which the evidence is related to.
      *  @param _evidence A link to an evidence using its URI.
-     *  @param _request The request the the evidence is related to.
      */
-    function submitEvidence(bytes32 _itemID, string calldata _evidence, uint _request) external {
+    function submitEvidence(bytes32 _itemID, string calldata _evidence) external {
         Item storage item = items[_itemID];
-        Request storage request = item.requests[_request];
+        Request storage request = item.requests[item.requests.length - 1];
         require(!request.resolved, "The dispute must not already be resolved.");
 
-        emit Evidence(request.arbitrator, uint(keccak256(abi.encodePacked(_itemID, _request))), msg.sender, _evidence);
+        emit Evidence(request.arbitrator, uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1))), msg.sender, _evidence);
     }
 
      // ************************ //
@@ -746,6 +480,13 @@ contract GeneralizedTCR is Arbitrable {
         arbitratorExtraData = _arbitratorExtraData;
     }
 
+    /** @dev Change the address of connectedTCR, the contract that stores addresses of TCRs related to this one.
+     *  @param _connectedTCR The new address of a connectedTCR contract.
+     */
+    function changeConnectedTCR(GeneralizedTCR _connectedTCR) external onlyGovernor {
+        connectedTCR = _connectedTCR;
+    }
+
     /** @dev Update the meta evidence used for disputes.
      *  @param _registrationMetaEvidence The meta evidence to be used for future registration request disputes.
      *  @param _clearingMetaEvidence The meta evidence to be used for future clearing request disputes.
@@ -803,65 +544,30 @@ contract GeneralizedTCR is Arbitrable {
     function executeRuling(uint _disputeID, uint _ruling) internal {
         bytes32 itemID = arbitratorDisputeIDToItem[msg.sender][_disputeID];
         Item storage item = items[itemID];
-        uint requestID = item.arbitratorDisputeIDtoRequestID[msg.sender][_disputeID];
-        Request storage request = item.requests[requestID];
+        Request storage request = item.requests[item.requests.length - 1];
 
         Party winner = Party(_ruling);
 
-        if (request.badgeRequest) {
-            Badge storage badge = item.badges[item.pendingBadge];
-            if (winner == Party.Requester) {
-                if (badge.status == Status.RegistrationRequested)
-                    badge.status = Status.Registered;
-                else if (badge.status == Status.ClearingRequested)
-                    badge.status = Status.Absent;
-            } else { // Revert to previous state.
-                if (badge.status == Status.RegistrationRequested)
-                    badge.status = Status.Absent;
-                else if (badge.status == Status.ClearingRequested)
-                    badge.status = Status.Registered;
-            }
-            emit BadgeStatusChange(
-                request.parties[uint(Party.Requester)],
-                request.parties[uint(Party.Challenger)],
-                itemID,
-                item.pendingBadge,
-                badge.status,
-                request.disputed,
-                false
-            );
-
-            item.pendingBadge = address(0);
+        if (winner == Party.Requester) { // Execute Request
+            if (item.status == Status.RegistrationRequested)
+                item.status = Status.Registered;
+            else if (item.status == Status.ClearingRequested)
+                item.status = Status.Absent;
         } else {
-            if (winner == Party.Requester) { // Execute Request
-                if (item.status == Status.RegistrationRequested)
-                    item.status = Status.Registered;
-                else if (item.status == Status.ClearingRequested)
-                    item.status = Status.Absent;
-            } else {
-                if (item.status == Status.RegistrationRequested)
-                    item.status = Status.Absent;
-                else if (item.status == Status.ClearingRequested)
-                    item.status = Status.Registered;
-            }
-            emit ItemStatusChange(
-                request.parties[uint(Party.Requester)],
-                request.parties[uint(Party.Challenger)],
-                itemID,
-                item.status,
-                request.disputed,
-                false
-            );
+            if (item.status == Status.RegistrationRequested)
+                item.status = Status.Absent;
+            else if (item.status == Status.ClearingRequested)
+                item.status = Status.Registered;
         }
 
         request.resolved = true;
         request.ruling = Party(_ruling);
         // Automatically withdraw.
         if (winner == Party.None) {
-            withdrawFeesAndRewards(request.parties[uint(Party.Requester)], itemID, requestID, 0);
-            withdrawFeesAndRewards(request.parties[uint(Party.Challenger)], itemID, requestID, 0);
+            withdrawFeesAndRewards(request.parties[uint(Party.Requester)], itemID, item.requests.length - 1, 0);
+            withdrawFeesAndRewards(request.parties[uint(Party.Challenger)], itemID, item.requests.length - 1, 0);
         } else {
-            withdrawFeesAndRewards(request.parties[uint(winner)], itemID, requestID, 0);
+            withdrawFeesAndRewards(request.parties[uint(winner)], itemID, item.requests.length - 1, 0);
         }
     }
 
@@ -869,21 +575,13 @@ contract GeneralizedTCR is Arbitrable {
     // *       Getters        * //
     // ************************ //
 
-    /** @dev Return the number of items that were submitted. Includes items that never made it to the list or were later removed.
+    /** @dev Returns the number of items that were submitted. Includes items that never made it to the list or were later removed.
      *  @return count The number of items on the list.
      */
     function itemCount() external view returns (uint count) {
         return itemList.length;
     }
 
-    /** @dev Return the number of badges that were submitted to the item. Includes badges that never made it to the list or were later removed.
-     *  @param _itemID The item to query badges from.
-     *  @return count The number of items on the list.
-     */
-    function badgeCount(bytes32 _itemID) external view returns (uint count) {
-        Item storage item = items[_itemID];
-        return item.badgeList.length;
-    }
 
     /** @dev Gets the contributions made by a party for a given round of a request.
      *  @param _itemID The ID of the item.
@@ -904,7 +602,7 @@ contract GeneralizedTCR is Arbitrable {
         contributions = round.contributions[_contributor];
     }
 
-    /** @dev Returns item's information. Includes length of requests array.
+   /** @dev Returns item's information. Includes length of requests array.
      *  @param _itemID The ID of the queried item.
      *  @return The item information.
      */
@@ -912,17 +610,15 @@ contract GeneralizedTCR is Arbitrable {
         external
         view
         returns (
-            bytes memory itemData,
+            bytes memory data,
             Status status,
-            address pendingBadge,
             uint numberOfRequests
         )
     {
         Item storage item = items[_itemID];
         return (
-            item.itemData,
+            item.data,
             item.status,
-            item.pendingBadge,
             item.requests.length
         );
     }
@@ -944,8 +640,7 @@ contract GeneralizedTCR is Arbitrable {
             uint numberOfRounds,
             Party ruling,
             Arbitrator arbitrator,
-            bytes memory arbitratorExtraData,
-            bool badgeRequest
+            bytes memory arbitratorExtraData
         )
     {
         Request storage request = items[_itemID].requests[_request];
@@ -958,12 +653,11 @@ contract GeneralizedTCR is Arbitrable {
             request.rounds.length,
             request.ruling,
             request.arbitrator,
-            request.arbitratorExtraData,
-            request.badgeRequest
+            request.arbitratorExtraData
         );
     }
 
-    /** @dev Gets the information on a round of a request.
+    /** @dev Gets the information of a round of a request.
      *  @param _itemID The ID of the queried item.
      *  @param _request The request to be queried.
      *  @param _round The round to be queried.
@@ -983,31 +677,96 @@ contract GeneralizedTCR is Arbitrable {
         Request storage request = item.requests[_request];
         Round storage round = request.rounds[_round];
         return (
-            _round != (request.rounds.length-1),
+            _round != (request.rounds.length - 1),
             round.paidFees,
             round.hasPaid,
             round.feeRewards
         );
     }
 
-    /** @dev Gets the information on a specific badge of the item.
-     *  @param _itemID The ID of the queried item.
-     *  @param _badge The address of the badge.
-     *  @return The badge information.
+    /** @dev Return the values of the items the query finds. This function is O(n), where n is the number of items. This could exceed the gas limit, therefore this function should only be used for interface display and not by other contracts.
+     *  @param _cursor The ID of the items from which to start iterating. To start from either the oldest or newest item.
+     *  @param _count The number of items to return.
+     *  @param _filter The filter to use. Each element of the array in sequence means:
+     *  - Include absent items in result.
+     *  - Include registered items in result.
+     *  - Include items with registration requests that are not disputed in result.
+     *  - Include items with clearing requests that are not disputed in result.
+     *  - Include disputed items with registration requests in result.
+     *  - Include disputed items with clearing requests in result.
+     *  - Include items submitted by _party.
+     *  - Include items challenged by _party.
+     *  @param _oldestFirst Whether to sort from oldest to the newest item.
+     *  @param _party The address to use if checking for items submitted or challenged by a specific party.
+     *  @return The data of the items found and whether there are more items for the current filter and sort.
      */
-    function getBadgeInfo(bytes32 _itemID, address _badge)
+    function queryItems(bytes32 _cursor, uint _count, bool[8] calldata _filter, bool _oldestFirst, address _party)
         external
         view
         returns (
-            Status status,
-            bool onTheList
+            bytes32[] memory ID,
+            Status[] memory status,
+            uint[] memory disputeID,
+            uint[] memory currentRuling,
+            uint[] memory submissionTime,
+            bool hasMore
         )
     {
-        Item storage item = items[_itemID];
-        Badge storage badge = item.badges[_badge];
-        return (
-            badge.status,
-            badge.onTheList
-        );
+        uint cursorIndex;
+        ID = new bytes32[](_count);
+        status = new Status[](_count);
+        disputeID = new uint[](_count);
+        currentRuling = new uint[](_count);
+        submissionTime = new uint[](_count);
+
+        uint index = 0;
+
+        if (_cursor == 0)
+            cursorIndex = 0;
+        else {
+            for (uint j = 0; j < itemList.length; j++) {
+                if (itemList[j] == _cursor) {
+                    cursorIndex = j;
+                    break;
+                }
+            }
+        }
+
+        for (
+            uint i = cursorIndex == 0 ? (_oldestFirst ? 0 : 1) : (_oldestFirst ? cursorIndex + 1 : itemList.length - cursorIndex + 1);
+            _oldestFirst ? i < itemList.length : i <= itemList.length;
+            i++
+        ) { // Oldest or newest first.
+            bytes32 itemID = itemList[_oldestFirst ? i : itemList.length - i];
+            Item storage item = items[itemID];
+            Request storage request = item.requests[item.requests.length - 1];
+            if (
+                /* solium-disable operator-whitespace */
+                (_filter[0] && item.status == Status.Absent) ||
+                (_filter[1] && item.status == Status.Registered) ||
+                (_filter[2] && item.status == Status.RegistrationRequested && !request.disputed) ||
+                (_filter[3] && item.status == Status.ClearingRequested && !request.disputed) ||
+                (_filter[4] && item.status == Status.RegistrationRequested && request.disputed) ||
+                (_filter[5] && item.status == Status.ClearingRequested && request.disputed) ||
+                (_filter[6] && request.parties[uint(Party.Requester)] == _party) ||
+                (_filter[7] && request.parties[uint(Party.Challenger)] == _party)
+                /* solium-enable operator-whitespace */
+            ) {
+                if (index < _count) {
+                    ID[index] = itemList[_oldestFirst ? i : itemList.length - i];
+                    status[index] = item.status;
+                    disputeID[index] = request.disputeID;
+                    currentRuling[index] = 0;
+                    submissionTime[index] = request.submissionTime;
+                    if (request.disputed && request.arbitrator.disputeStatus(request.disputeID) == Arbitrator.DisputeStatus.Appealable) {
+                        currentRuling[index] = request.arbitrator.currentRuling(request.disputeID);
+                    }
+                    index++;
+                } else {
+                    hasMore = true;
+                    break;
+                }
+            }
+        }
     }
 }
