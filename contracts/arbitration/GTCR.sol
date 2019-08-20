@@ -83,7 +83,6 @@ contract GeneralizedTCR is  IArbitrable, IEvidence {
     bytes32[] public itemList; // List of IDs of all submitted items.
     mapping(bytes32 => Item) public items; // Maps the item ID to its data. items[_itemID].
     mapping(address => mapping(uint => bytes32)) public arbitratorDisputeIDToItem;  // Maps a dispute ID to the ID of the item with the disputed request. arbitratorDisputeIDToItem[arbitrator][disputeID].
-    mapping(bytes32 => bool) itemIDs;  // Returns "true" if the item has already been added to the list.
 
      /* Modifiers */
 
@@ -139,42 +138,19 @@ contract GeneralizedTCR is  IArbitrable, IEvidence {
     // *       Requests       * //
     // ************************ //
 
-    /** @dev Submits a request to add a new item to the list. Accepts enough ETH to cover potential dispute, reimburses the rest.
+    /** @dev Submits a request to change item's status. Accepts enough ETH to cover potential dispute, reimburses the rest.
      *  @param _item The data describing the item.
      */
-    function addNewItem(bytes calldata _item) external payable {
-        bytes32 itemID = keccak256(_item);
-        require(!itemIDs[itemID], "Item is already added");
-        itemList.push(itemID);
-        itemIDs[itemID] = true;
-
-        Item storage item = items[itemID];
-        item.status = Status.RegistrationRequested;
-        item.data = _item;
-
-        Request storage request = item.requests[item.requests.length++];
-        request.parties[uint(Party.Requester)] = msg.sender;
-        request.submissionTime = now;
-        request.arbitrator = arbitrator;
-        request.arbitratorExtraData = arbitratorExtraData;
-        Round storage round = request.rounds[request.rounds.length++];
-
-        uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
-        uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(requesterBaseDeposit);
-        contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
-        require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
-        round.hasPaid[uint(Party.Requester)] = true;
-    }
-
-    /** @dev Submits a request to change item's status. Accepts enough ETH to cover potential dispute, reimburses the rest.
-     *  @param _itemID A unique ID of the item which is a hash of its data.
-     */
-    function requestStatusChange(bytes32 _itemID)
+    function requestStatusChange(bytes calldata _item)
         external
         payable
     {
-        Item storage item = items[_itemID];
-        require(itemIDs[_itemID], "Item should already be on the list");
+        bytes32 itemID = keccak256(_item);
+        Item storage item = items[itemID];
+        if (item.requests.length == 0) {
+            item.data = _item;
+            itemList.push(itemID);
+        }
         if (item.status == Status.Absent)
             item.status = Status.RegistrationRequested;
         else if (item.status == Status.Registered)
@@ -733,11 +709,8 @@ contract GeneralizedTCR is  IArbitrable, IEvidence {
         }
 
         for (
-            uint i = cursorIndex == 0 ? (_oldestFirst ? 0 : 1) : (_oldestFirst ? cursorIndex + 1 : itemList.length - cursorIndex + 1);
-            _oldestFirst ? i < itemList.length : i <= itemList.length;
-            i++
-        ) { // Oldest or newest first.
-            bytes32 itemID = itemList[_oldestFirst ? i : itemList.length - i];
+            uint i = cursorIndex; i < itemList.length; i++) {
+            bytes32 itemID = itemList[_oldestFirst ? i : itemList.length - 1 - i];
             Item storage item = items[itemID];
             Request storage request = item.requests[item.requests.length - 1];
             if (
@@ -753,7 +726,7 @@ contract GeneralizedTCR is  IArbitrable, IEvidence {
                 /* solium-enable operator-whitespace */
             ) {
                 if (index < _count) {
-                    ID[index] = itemList[_oldestFirst ? i : itemList.length - i];
+                    ID[index] = itemList[_oldestFirst ? i : itemList.length - 1 - i];
                     status[index] = item.status;
                     disputeID[index] = request.disputeID;
                     currentRuling[index] = 0;
