@@ -709,7 +709,7 @@ contract GeneralizedTCR is  IArbitrable, IEvidence {
         }
 
         for (
-            uint i = cursorIndex; i < itemList.length; i++) {
+            uint i = _oldestFirst ? cursorIndex : itemList.length - cursorIndex - 1; i < itemList.length; i++) {
             bytes32 itemID = itemList[_oldestFirst ? i : itemList.length - 1 - i];
             Item storage item = items[itemID];
             Request storage request = item.requests[item.requests.length - 1];
