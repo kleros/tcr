@@ -1,0 +1,80 @@
+[
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_address",
+        "type": "address"
+      }
+    ],
+    "name": "fetchData",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "governor",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "arbitrator",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes",
+            "name": "arbitratorExtraData",
+            "type": "bytes"
+          },
+          {
+            "internalType": "uint256",
+            "name": "requesterBaseDeposit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "challengerBaseDeposit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "challengePeriodDuration",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "metaEvidenceUpdates",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "winnerStakeMultiplier",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "loserStakeMultiplier",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "sharedStakeMultiplier",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "MULTIPLIER_DIVISOR",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct ArbitrableTCRView.QueryResult",
+        "name": "result",
+        "type": "tuple"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
