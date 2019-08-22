@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.2](https://github.com/kleros/tcr/compare/v0.1.1...v0.1.2) (2019-08-22)
+
+### Features
+
+- add contract abis to package ([1a4d405](https://github.com/kleros/tcr/commit/1a4d405))
+
 ### 0.1.1 (2019-08-22)
 
 ### Bug Fixes
