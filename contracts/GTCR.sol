@@ -4,7 +4,7 @@ pragma solidity ^0.5.11;
 
 import { IArbitrable, Arbitrator } from "@kleros/erc-792/contracts/Arbitrator.sol";
 import { IEvidence } from "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
-import "../libraries/CappedMath.sol";
+import "./libraries/CappedMath.sol";
 
 /**
  *  @title GeneralizedTCR
