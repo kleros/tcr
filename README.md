@@ -4,8 +4,6 @@
 
 <p align="center">
   <a href="https://standardjs.com"><img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="JavaScript Style Guide"></a>
-  <a href="https://david-dm.org/kleros/kleros-interaction"><img src="https://david-dm.org/kleros/kleros-interaction.svg" alt="Dependencies"></a>
-  <a href="https://david-dm.org/kleros/kleros-interaction?type=dev"><img src="https://david-dm.org/kleros/kleros-interaction/dev-status.svg" alt="Dev Dependencies"></a>
   <a href="https://github.com/trufflesuite/truffle"><img src="https://img.shields.io/badge/tested%20with-truffle-red.svg" alt="Tested with Truffle"></a>
   <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
   <a href="http://commitizen.github.io/cz-cli/"><img src="https://img.shields.io/badge/commitizen-friendly-brightgreen.svg" alt="Commitizen Friendly"></a>
@@ -14,22 +12,46 @@
 
 Contracts for creating arbitrable permission lists on Ethereum.
 
-## Get Started
+## Usage in clients
+
+This is also a npm and yarn package that can be installed into clients to access the contracts abis.
+Example usage with `ethersjs`:
+
+`yarn add @kleros/tcr`
+
+Then in your js file:
+
+```
+import _arbitrator from '@kleros/tcr/abi/GeneralizedTCR.json'
+
+...
+
+const arbitrator = new ethers.Contract(address, _arbitrator, signer)
+```
+
+## Development
 
 1.  Clone this repo.
-2.  Run `yarn` to install dependencies and then `yarn run build` to compile the contracts.
+2.  Run `yarn` to install dependencies and then `yarn build` to compile the contracts.
+
+> Note: The build script also runs `abi-extract`.
+
+## Release
+
+To bump the version of the package, use `yarn release`.
 
 ## Scripts
 
-- `yarn run prettify` - Apply prettier to the entire project.
-- `yarn run lint:sol` - Lint the entire project's .sol files.
-- `yarn run lint:js` - Lint the entire project's .js files.
-- `yarn run lint:sol --fix` - Fix fixable linting errors in .sol files.
-- `yarn run lint:js --fix` - Fix fixable linting errors in .js files.
-- `yarn run lint` - Lint the entire project's .sol and .js files.
+- `yarn prettify` - Apply prettier to the entire project.
+- `yarn lint:sol` - Lint the entire project's .sol files.
+- `yarn lint:js` - Lint the entire project's .js files.
+- `yarn lint:sol --fix` - Fix fixable linting errors in .sol files.
+- `yarn lint:js --fix` - Fix fixable linting errors in .js files.
+- `yarn lint` - Lint the entire project's .sol and .js files.
 - `yarn test` - Run the truffle tests.
-- `yarn run cz` - Run commitizen.
-- `yarn run build` - Compile contracts.
+- `yarn cz` - Run commitizen.
+- `yarn build` - Compiles contracts and extracts the abi into the abi folder.
+- `yarn release` - Run standard-version`.
 
 ## Test
 
