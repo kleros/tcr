@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.5](https://github.com/kleros/tcr/compare/v0.1.4...v0.1.5) (2019-08-23)
+
+### Bug Fixes
+
+- add/remove missing and obsolete abis ([b62e317](https://github.com/kleros/tcr/commit/b62e317))
+- let the package users build the contracts ([3259df1](https://github.com/kleros/tcr/commit/3259df1))
+
+### Features
+
+- emit event on item status change ([c341007](https://github.com/kleros/tcr/commit/c341007))
+
 ### [0.1.4](https://github.com/kleros/tcr/compare/v0.1.3...v0.1.4) (2019-08-23)
 
 ### Features
