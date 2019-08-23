@@ -4,6 +4,7 @@ pragma solidity ^0.5.11;
 
 import { IArbitrable, Arbitrator } from "@kleros/erc-792/contracts/Arbitrator.sol";
 import { IEvidence } from "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
+import { ERC165 } from "@openzeppelin/contracts/introspection/ERC165.sol";
 import "./libraries/CappedMath.sol";
 
 /**
@@ -11,7 +12,7 @@ import "./libraries/CappedMath.sol";
  *  This contract is a curated registry for any types of items. Just like TCR contract it uses request-challenge protocol and crowdfunding, but also has new features such as badges and request cancellation.
  *  The badges are queried through queryItems function of connnected TCR which address can be set either in a constructor or in a respective governance function.
  */
-contract GeneralizedTCR is IArbitrable, IEvidence {
+contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
     using CappedMath for uint;
 
     /* Enums */
@@ -130,6 +131,11 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         sharedStakeMultiplier = _sharedStakeMultiplier;
         winnerStakeMultiplier = _winnerStakeMultiplier;
         loserStakeMultiplier = _loserStakeMultiplier;
+
+        // Register implentation of the IArbitrable interface for
+        // EIP-165 introspection.
+        // bytes4(keccak256('rule(uint,uint)')) == 0x311a6c56
+        _registerInterface(0x311a6c56);
     }
 
     /* External and Public */
@@ -573,7 +579,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         return itemList.length;
     }
 
-
     /** @dev Gets the contributions made by a party for a given round of a request.
      *  @param _itemID The ID of the item.
      *  @param _request The request to query.
@@ -593,7 +598,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         contributions = round.contributions[_contributor];
     }
 
-   /** @dev Returns item's information. Includes length of requests array.
+    /** @dev Returns item's information. Includes length of requests array.
      *  @param _itemID The ID of the queried item.
      *  @return The item information.
      */

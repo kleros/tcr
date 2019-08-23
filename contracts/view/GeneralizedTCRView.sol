@@ -165,7 +165,7 @@ contract GeneralizedTCRView {
      *  - Include items challenged by _party.
      *  @param _oldestFirst Whether to sort from oldest to the newest item.
      *  @param _party The address to use if checking for items submitted or challenged by a specific party.
-     *  @return The values of the tokens found and whether there are more tokens for the current filter and sort.
+     *  @return The data of the items found and whether there are more items for the current filter and sort.
      */
     function queryItems(
         address _address,
@@ -197,11 +197,7 @@ contract GeneralizedTCRView {
             require(cursorIndex != 0, "The cursor is invalid.");
         }
 
-        for (
-                uint i = cursorIndex == 0 ? (_oldestFirst ? 0 : 1) : (_oldestFirst ? cursorIndex + 1 : gtcr.itemCount() - cursorIndex + 1);
-                _oldestFirst ? i < gtcr.itemCount() : i <= gtcr.itemCount();
-                i++
-            ) { // Oldest or newest first.
+        for (uint i = _oldestFirst ? cursorIndex : gtcr.itemCount() - cursorIndex - 1; i < gtcr.itemCount(); i++) {
             bytes32 itemID = gtcr.itemList(_oldestFirst ? i : gtcr.itemCount() - i);
             QueryResult memory item = getItem(_address, itemID);
             if (
