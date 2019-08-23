@@ -11,7 +11,7 @@ import "./libraries/CappedMath.sol";
  *  This contract is a curated registry for any types of items. Just like TCR contract it uses request-challenge protocol and crowdfunding, but also has new features such as badges and request cancellation.
  *  The badges are queried through queryItems function of connnected TCR which address can be set either in a constructor or in a respective governance function.
  */
-contract GeneralizedTCR is  IArbitrable, IEvidence {
+contract GeneralizedTCR is IArbitrable, IEvidence {
     using CappedMath for uint;
 
     /* Enums */
