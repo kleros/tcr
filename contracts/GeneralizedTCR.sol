@@ -138,38 +138,22 @@ contract GeneralizedTCR is  IArbitrable, IEvidence {
     // *       Requests       * //
     // ************************ //
 
-    /** @dev Submits a request to change item's status. Accepts enough ETH to cover potential dispute, reimburses the rest.
+    /** @dev Submit a request to register the an item. Accepts enough ETH to cover potential dispute, reimburses the rest.
      *  @param _item The data describing the item.
      */
-    function requestStatusChange(bytes calldata _item)
-        external
-        payable
-    {
+    function addItem(bytes calldata _item) external payable {
         bytes32 itemID = keccak256(_item);
-        Item storage item = items[itemID];
-        if (item.requests.length == 0) {
-            item.data = _item;
-            itemList.push(itemID);
-        }
-        if (item.status == Status.Absent)
-            item.status = Status.RegistrationRequested;
-        else if (item.status == Status.Registered)
-            item.status = Status.ClearingRequested;
-        else
-            revert("Item already has a pending request.");
+        require(items[itemID].status == Status.Absent, "Item must be absent to be added.");
+        requestStatusChange(_item);
+    }
 
-        Request storage request = item.requests[item.requests.length++];
-        request.parties[uint(Party.Requester)] = msg.sender;
-        request.submissionTime = now;
-        request.arbitrator = arbitrator;
-        request.arbitratorExtraData = arbitratorExtraData;
-        Round storage round = request.rounds[request.rounds.length++];
-
-        uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
-        uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(requesterBaseDeposit);
-        contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
-        require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
-        round.hasPaid[uint(Party.Requester)] = true;
+    /** @dev Submit a request to remove the an item from the list. Accepts enough ETH to cover potential dispute, reimburses the rest.
+     *  @param _item The data describing the item.
+     */
+    function removeItem(bytes calldata _item) external payable {
+        bytes32 itemID = keccak256(_item);
+        require(items[itemID].status == Status.Registered, "Item must be registered to be removed.");
+        requestStatusChange(_item);
     }
 
     /** @dev Challenges the request of the item. Accepts enough ETH to cover potential dispute, reimburses the rest.
@@ -474,6 +458,37 @@ contract GeneralizedTCR is  IArbitrable, IEvidence {
     }
 
     /* Internal */
+
+    /** @dev Submit a request to change item's status. Accepts enough ETH to cover potential dispute, reimburses the rest.
+     *  @param _item The data describing the item.
+     */
+    function requestStatusChange(bytes memory _item) internal {
+        bytes32 itemID = keccak256(_item);
+        Item storage item = items[itemID];
+        if (item.requests.length == 0) {
+            item.data = _item;
+            itemList.push(itemID);
+        }
+        if (item.status == Status.Absent)
+            item.status = Status.RegistrationRequested;
+        else if (item.status == Status.Registered)
+            item.status = Status.ClearingRequested;
+        else
+            revert("Item already has a pending request.");
+
+        Request storage request = item.requests[item.requests.length++];
+        request.parties[uint(Party.Requester)] = msg.sender;
+        request.submissionTime = now;
+        request.arbitrator = arbitrator;
+        request.arbitratorExtraData = arbitratorExtraData;
+        Round storage round = request.rounds[request.rounds.length++];
+
+        uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
+        uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(requesterBaseDeposit);
+        contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
+        require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
+        round.hasPaid[uint(Party.Requester)] = true;
+    }
 
     /** @dev Returns the contribution value and remainder from available ETH and required amount.
      *  @param _available The amount of ETH available for the contribution.

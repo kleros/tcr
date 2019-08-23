@@ -434,7 +434,22 @@
         "type": "bytes"
       }
     ],
-    "name": "requestStatusChange",
+    "name": "addItem",
+    "outputs": [],
+    "payable": true,
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "_item",
+        "type": "bytes"
+      }
+    ],
+    "name": "removeItem",
     "outputs": [],
     "payable": true,
     "stateMutability": "payable",
