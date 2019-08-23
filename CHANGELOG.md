@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.3](https://github.com/kleros/tcr/compare/v0.1.2...v0.1.3) (2019-08-23)
+
+### Features
+
+- add view contract and remove obsolete ([26733d4](https://github.com/kleros/tcr/commit/26733d4))
+
 ### [0.1.2](https://github.com/kleros/tcr/compare/v0.1.1...v0.1.2) (2019-08-22)
 
 ### Features
