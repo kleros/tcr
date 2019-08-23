@@ -1,7 +1,14 @@
-/* solium-disable max-len*/
+/**
+ *  @authors: [@unknownunknown1, @mtsalenc]
+ *  @reviewers: [@mtsalenc]
+ *  @auditors: []
+ *  @bounties: []
+ *  @deployments: []
+ */
 
 pragma solidity ^0.5.11;
 
+/* solium-disable max-len*/
 import { IArbitrable, Arbitrator } from "@kleros/erc-792/contracts/Arbitrator.sol";
 import { IEvidence } from "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
 import { ERC165 } from "@openzeppelin/contracts/introspection/ERC165.sol";
