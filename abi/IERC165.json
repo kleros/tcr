@@ -3,16 +3,16 @@
     "constant": true,
     "inputs": [
       {
-        "internalType": "bytes32",
-        "name": "_value",
-        "type": "bytes32"
+        "internalType": "bytes4",
+        "name": "interfaceId",
+        "type": "bytes4"
       }
     ],
-    "name": "isPermitted",
+    "name": "supportsInterface",
     "outputs": [
       {
         "internalType": "bool",
-        "name": "allowed",
+        "name": "",
         "type": "bool"
       }
     ],
