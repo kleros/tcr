@@ -16,7 +16,7 @@
     "test:truffle": "truffle test",
     "test": "run-p test:*",
     "cz": "kathari cz",
-    "build": "truffle compile && node abi-extract",
+    "build": "truffle compile",
     "release": "standard-version"
   },
   "commitlint": {
