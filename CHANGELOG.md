@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.4](https://github.com/kleros/tcr/compare/v0.1.3...v0.1.4) (2019-08-23)
+
+### Features
+
+- add introspection for the IArbitrable interface ([c5e4bc3](https://github.com/kleros/tcr/commit/c5e4bc3))
+- remove unused permission interface ([f5e339b](https://github.com/kleros/tcr/commit/f5e339b))
+- use proxy methods to requestStatusChange to avoid accidents ([69948d6](https://github.com/kleros/tcr/commit/69948d6))
+
 ### [0.1.3](https://github.com/kleros/tcr/compare/v0.1.2...v0.1.3) (2019-08-23)
 
 ### Features
