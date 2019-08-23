@@ -9,6 +9,9 @@ const path = require('path')
 const jsonfile = require('jsonfile')
 
 const buildPath = path.join(__dirname, 'build/contracts/')
+const abiPath = 'abi/'
+
+if (!fs.existsSync(abiPath)) fs.mkdirSync(abiPath)
 
 fs.readdir(buildPath, (err, files) => {
   if (err) throw err
@@ -16,7 +19,7 @@ fs.readdir(buildPath, (err, files) => {
   files.forEach(file => {
     jsonfile.readFile(`${buildPath}${file}`, (err, { abi }) => {
       if (err) throw err
-      jsonfile.writeFile(`abi/${file}`, abi, { spaces: 2 })
+      jsonfile.writeFile(`${abiPath}${file}`, abi, { spaces: 2 })
     })
   })
 })
