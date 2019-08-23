@@ -12,29 +12,10 @@
 
 Contracts for creating arbitrable permission lists on Ethereum.
 
-## Usage in clients
-
-This is also a npm and yarn package that can be installed into clients to access the contracts abis.
-Example usage with `ethersjs`:
-
-`yarn add @kleros/tcr`
-
-Then in your js file:
-
-```
-import _arbitrator from '@kleros/tcr/abi/GeneralizedTCR.json'
-
-...
-
-const arbitrator = new ethers.Contract(address, _arbitrator, signer)
-```
-
 ## Development
 
 1.  Clone this repo.
 2.  Run `yarn` to install dependencies and then `yarn build` to compile the contracts.
-
-> Note: The build script also runs `abi-extract`.
 
 ## Release
 
