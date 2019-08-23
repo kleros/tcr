@@ -96,6 +96,16 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
 
     modifier onlyGovernor {require(msg.sender == governor, "The caller must be the governor."); _;}
 
+    /* Events */
+
+    /**
+     *  @dev Emitted when a party makes a request, dispute or appeals are raised, or when a request is resolved.
+     *  @param itemID The ID of the affected item.
+     *  @param requestIndex The index of the latest request.
+     *  @param roundIndex The index of the latest round.
+     */
+    event ItemStatusChange(bytes32 indexed itemID, uint requestIndex, uint roundIndex);
+
     /**
      *  @dev Constructs the arbitrable curated registry.
      *  @param _arbitrator The trusted arbitrator to resolve potential disputes.
@@ -326,6 +336,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
             revert("There must be a request.");
 
         request.resolved = true;
+        emit ItemStatusChange(_itemID, item.requests.length - 1, request.rounds.length - 1);
+
         withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _itemID, item.requests.length - 1, 0); // Automatically withdraw for the requester.
     }
 
@@ -350,6 +362,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
             revert("There must be a request.");
 
         request.resolved = true;
+        emit ItemStatusChange(_itemID, item.requests.length - 1, request.rounds.length - 1);
+
         withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _itemID, item.requests.length - 1, 0); // Automatically withdraw for the requester.
     }
 
@@ -501,6 +515,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
         contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
         require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Requester)] = true;
+
+        emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1);
     }
 
     /** @dev Returns the contribution value and remainder from available ETH and required amount.
@@ -566,6 +582,9 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
 
         request.resolved = true;
         request.ruling = Party(_ruling);
+
+        emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1);
+
         // Automatically withdraw.
         if (winner == Party.None) {
             withdrawFeesAndRewards(request.parties[uint(Party.Requester)], itemID, item.requests.length - 1, 0);
