@@ -198,7 +198,7 @@ contract GeneralizedTCRView {
         }
 
         for (uint i = _oldestFirst ? cursorIndex : gtcr.itemCount() - cursorIndex - 1; i < gtcr.itemCount(); i++) {
-            bytes32 itemID = gtcr.itemList(_oldestFirst ? i : gtcr.itemCount() - i);
+            bytes32 itemID = gtcr.itemList(_oldestFirst ? i : gtcr.itemCount() - i - 1);
             QueryResult memory item = getItem(_address, itemID);
             if (
                 /* solium-disable operator-whitespace */
