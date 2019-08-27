@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.8](https://github.com/kleros/tcr/compare/v0.1.7...v0.1.8) (2019-08-27)
+
+### Features
+
+- add find index for page view function ([c76d288](https://github.com/kleros/tcr/commit/c76d288))
+
 ### [0.1.7](https://github.com/kleros/tcr/compare/v0.1.6...v0.1.7) (2019-08-24)
 
 ### Bug Fixes
