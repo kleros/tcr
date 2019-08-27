@@ -13,11 +13,9 @@ import { GeneralizedTCR } from "../GeneralizedTCR.sol";
 import { Arbitrator } from "@kleros/erc-792/contracts/Arbitrator.sol";
 import { BytesLib } from "solidity-bytes-utils/contracts/BytesLib.sol";
 import { RLPReader } from "solidity-rlp/contracts/RLPReader.sol";
-import "../libraries/CappedMath.sol";
 
 
 contract GeneralizedTCRView {
-    using CappedMath for uint; // Operations bounded between 0 and 2**256 - 1.
     using RLPReader for RLPReader.RLPItem;
     using RLPReader for bytes;
     using BytesLib for bytes;
@@ -108,7 +106,7 @@ contract GeneralizedTCRView {
         }
     }
 
-    /** @dev Find an item by matching column values.
+    /** @dev Find an item by matching column values. TODO: Update this to iterate a limited number of items per call.
      *  - Example:
      *  Item [18, 'PNK', 'Pinakion', '0xca35b7d915458ef540ade6068dfe2f44e8fa733c']
      *  RLP encoded: 0xe383504e4b128850696e616b696f6e94ca35b7d915458ef540ade6068dfe2f44e8fa733c
@@ -147,12 +145,56 @@ contract GeneralizedTCRView {
                 }
             }
         }
+
         return results;
+    }
+
+    function findIndexForPage(
+        address _address,
+        uint _page,
+        uint _itemsPerPage,
+        uint _cursorIndex,
+        uint _count,
+        bool[8] calldata _filter,
+        bool _oldestFirst,
+        address _party
+    )
+        external
+        view
+        returns (uint index, bool hasMore)
+    {
+        GeneralizedTCR gtcr = GeneralizedTCR(_address);
+        for (uint i = _oldestFirst ? _cursorIndex : gtcr.itemCount() - _cursorIndex - 1; i < gtcr.itemCount(); i++) {
+            bytes32 itemID = gtcr.itemList(_oldestFirst ? i : gtcr.itemCount() - i - 1);
+            QueryResult memory item = getItem(_address, itemID);
+            if (
+                /* solium-disable operator-whitespace */
+                (_filter[0] && item.status == GeneralizedTCR.Status.Absent) ||
+                (_filter[1] && item.status == GeneralizedTCR.Status.Registered) ||
+                (_filter[2] && item.status == GeneralizedTCR.Status.RegistrationRequested && !item.disputed) ||
+                (_filter[3] && item.status == GeneralizedTCR.Status.ClearingRequested && !item.disputed) ||
+                (_filter[4] && item.status == GeneralizedTCR.Status.RegistrationRequested && item.disputed) ||
+                (_filter[5] && item.status == GeneralizedTCR.Status.ClearingRequested && item.disputed) ||
+                (_filter[6] && item.requester == _party) ||
+                (_filter[7] && item.challenger == _party)
+                /* solium-enable operator-whitespace */
+            ) {
+                if (index < _count) {
+                    if (index / _itemsPerPage == _page) {
+                        return (index, hasMore);
+                    }
+                    index++;
+                } else {
+                    hasMore = true;
+                    break;
+                }
+            }
+        }
     }
 
     /** @dev Return the values of the items the query finds. This function is O(n), where n is the number of items. This could exceed the gas limit, therefore this function should only be used for interface display and not by other contracts.
      *  @param _address The address of the GTCR to query.
-     *  @param _cursor The ID of the items from which to start iterating. To start from either the oldest or newest item.
+     *  @param _cursorIndex The index of the items from which to start iterating. To start from either the oldest or newest item.
      *  @param _count The number of items to return.
      *  @param _filter The filter to use. Each element of the array in sequence means:
      *  - Include absent items in result.
@@ -169,7 +211,7 @@ contract GeneralizedTCRView {
      */
     function queryItems(
         address _address,
-        bytes32 _cursor,
+        uint _cursorIndex,
         uint _count,
         bool[8] calldata _filter,
         bool _oldestFirst,
@@ -180,24 +222,10 @@ contract GeneralizedTCRView {
         returns (QueryResult[] memory results, bool hasMore)
     {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
-        uint cursorIndex;
         results = new QueryResult[](_count);
-
         uint index = 0;
 
-        if (_cursor == 0)
-            cursorIndex = 0;
-        else {
-            for (uint j = 0; j < gtcr.itemCount(); j++) {
-                if (gtcr.itemList(j) == _cursor) {
-                    cursorIndex = j;
-                    break;
-                }
-            }
-            require(cursorIndex != 0, "The cursor is invalid.");
-        }
-
-        for (uint i = _oldestFirst ? cursorIndex : gtcr.itemCount() - cursorIndex - 1; i < gtcr.itemCount(); i++) {
+        for (uint i = _oldestFirst ? _cursorIndex : gtcr.itemCount() - _cursorIndex - 1; i < gtcr.itemCount(); i++) {
             bytes32 itemID = gtcr.itemList(_oldestFirst ? i : gtcr.itemCount() - i - 1);
             QueryResult memory item = getItem(_address, itemID);
             if (
