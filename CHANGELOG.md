@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.10](https://github.com/kleros/tcr/compare/v0.1.9...v0.1.10) (2019-08-28)
+
+### Bug Fixes
+
+- execution error on queryItems and findIndexFor page for empty tcrs ([ed280da](https://github.com/kleros/tcr/commit/ed280da))
+
+### Features
+
+- add countWithFilter() and return indexFound on findIndexForPage ([04da768](https://github.com/kleros/tcr/commit/04da768))
+
 ### [0.1.9](https://github.com/kleros/tcr/compare/v0.1.8...v0.1.9) (2019-08-28)
 
 ### Bug Fixes
