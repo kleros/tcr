@@ -166,6 +166,8 @@ contract GeneralizedTCRView {
         uint currPage = 1;
         uint itemsMatched = 0;
 
+        if (gtcr.itemCount() == 0) return (0, false);
+
         // Start iterating from the end if the _cursorIndex is 0 and _oldestFirst is false.
         // Keep the cursor as is otherwise.
         uint i = _oldestFirst ? _targets[3] : _targets[3] == 0 ? gtcr.itemCount() - 1 : _targets[3];
@@ -234,6 +236,8 @@ contract GeneralizedTCRView {
         results = new QueryResult[](_count);
         uint index = 0;
         uint count = _count;
+
+        if (gtcr.itemCount() == 0) return (results, false);
 
         // Start iterating from the end if the _cursorIndex is 0 and _oldestFirst is false.
         // Keep the cursor as is otherwise.
