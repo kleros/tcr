@@ -187,7 +187,10 @@ contract GeneralizedTCRView {
                 itemsMatched++;
                 if (itemsMatched % _targets[1] == 0) {
                     currPage++;
-                    if (currPage == _targets[0]) return (_filter[8] ? i + 1 : i - 1, hasMore, true);
+                    if (currPage == _targets[0]){
+                        if ((i == 0 && !_filter[8]) || (i == gtcr.itemCount() - 1 && _filter[8])) hasMore = false;
+                        return (_filter[8] ? i + 1 : i - 1, hasMore, true);
+                    }
                 }
             }
             count--;
