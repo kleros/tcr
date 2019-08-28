@@ -199,15 +199,17 @@ contract GeneralizedTCRView {
             // Also prevents underflow if the cursor is at the first item.
             i = _filter[8] ? i + 1 : i == 0 ? 0 : i - 1;
         }
+
+        return (i, hasMore, false);
     }
 
     function countWithFilter(address _address, uint _cursorIndex, uint _count, bool[8] calldata _filter, address _party)
         external
         view
-        returns (uint count, bool hasMore)
+        returns (uint count, bool hasMore, uint)
     {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
-        if (gtcr.itemCount() == 0) return (0, false);
+        if (gtcr.itemCount() == 0) return (0, false, 0);
 
         uint iterations = 1;
         for (uint i = _cursorIndex; iterations <= _count && i < gtcr.itemCount(); i++) {
@@ -227,7 +229,7 @@ contract GeneralizedTCRView {
             ) {
                 count++;
                 if (iterations > _count) {
-                    hasMore = true;
+                    return (count, true, i);
                 }
             }
         }
