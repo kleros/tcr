@@ -211,12 +211,10 @@ contract GeneralizedTCRView {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         if (gtcr.itemCount() == 0) return (0, false, 0);
 
-        uint iterations = 1;
+        uint iterations = 0;
         for (uint i = _cursorIndex; iterations <= _count && i < gtcr.itemCount(); i++) {
-            iterations++;
             bytes32 itemID = gtcr.itemList(i);
             QueryResult memory item = getItem(_address, itemID);
-            hasMore = true;
             if (
                 (_filter[0] && item.status == GeneralizedTCR.Status.Absent) ||
                 (_filter[1] && item.status == GeneralizedTCR.Status.Registered) ||
@@ -228,10 +226,11 @@ contract GeneralizedTCRView {
                 (_filter[7] && item.challenger == _party)
             ) {
                 count++;
-                if (iterations > _count) {
+                if (iterations >= _count) {
                     return (count, true, i);
                 }
             }
+            iterations++;
         }
     }
 
