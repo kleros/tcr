@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.11](https://github.com/kleros/tcr/compare/v0.1.10...v0.1.11) (2019-08-28)
+
+### Features
+
+- return last index if target was not found ([1b8614f](https://github.com/kleros/tcr/commit/1b8614f))
+
 ### [0.1.10](https://github.com/kleros/tcr/compare/v0.1.9...v0.1.10) (2019-08-28)
 
 ### Bug Fixes
