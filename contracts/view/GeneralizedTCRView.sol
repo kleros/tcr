@@ -152,27 +152,25 @@ contract GeneralizedTCRView {
     function findIndexForPage(
         address _address,
         uint[4] calldata _targets, // targets[0] == _page, targest[1] == _itemsPerPage, targets[2] == _count, targets[3] = _cursor
-        bool[8] calldata _filter,
-        bool _oldestFirst,
+        bool[9] calldata _filter, // The list item of the filter is _oldestFirst
         address _party
     )
         external
         view
-        returns (uint index, bool hasMore)
+        returns (uint index, bool hasMore, bool indexFound)
     {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
-        uint index = 0;
         uint count = _targets[2];
         uint currPage = 1;
         uint itemsMatched = 0;
 
-        if (gtcr.itemCount() == 0) return (0, false);
+        if (gtcr.itemCount() == 0) return (0, false, true);
 
         // Start iterating from the end if the _cursorIndex is 0 and _oldestFirst is false.
         // Keep the cursor as is otherwise.
-        uint i = _oldestFirst ? _targets[3] : _targets[3] == 0 ? gtcr.itemCount() - 1 : _targets[3];
+        uint i = _filter[8] ? _targets[3] : _targets[3] == 0 ? gtcr.itemCount() - 1 : _targets[3];
 
-        for(; _oldestFirst ? i < gtcr.itemCount() && count > 0 : i >= 0 && count > 0; ) {
+        for(; _filter[8] ? i < gtcr.itemCount() && count > 0 : i >= 0 && count > 0; ) {
             bytes32 itemID = gtcr.itemList(i);
             QueryResult memory item = getItem(_address, itemID);
             hasMore = true;
@@ -189,17 +187,49 @@ contract GeneralizedTCRView {
                 itemsMatched++;
                 if (itemsMatched % _targets[1] == 0) {
                     currPage++;
-                    if (currPage == _targets[0]) return (_oldestFirst ? i + 1 : i - 1, hasMore);
+                    if (currPage == _targets[0]) return (_filter[8] ? i + 1 : i - 1, hasMore, true);
                 }
             }
             count--;
-            if (count == 0 || (i == 0 && !_oldestFirst) || (i == gtcr.itemCount() - 1 && _oldestFirst)) {
-                hasMore = _oldestFirst ? i < gtcr.itemCount() - 1 : i > 0;
+            if (count == 0 || (i == 0 && !_filter[8]) || (i == gtcr.itemCount() - 1 && _filter[8])) {
+                hasMore = _filter[8] ? i < gtcr.itemCount() - 1 : i > 0;
                 break;
             }
             // Move cursor to the left or right depending on _oldestFirst.
             // Also prevents underflow if the cursor is at the first item.
-            i = _oldestFirst ? i + 1 : i == 0 ? 0 : i - 1;
+            i = _filter[8] ? i + 1 : i == 0 ? 0 : i - 1;
+        }
+    }
+
+    function countWithFilter(address _address, uint _cursorIndex, uint _count, bool[8] calldata _filter, address _party)
+        external
+        view
+        returns (uint count, bool hasMore)
+    {
+        GeneralizedTCR gtcr = GeneralizedTCR(_address);
+        if (gtcr.itemCount() == 0) return (0, false);
+
+        uint iterations = 1;
+        for (uint i = _cursorIndex; iterations <= _count && i < gtcr.itemCount(); i++) {
+            iterations++;
+            bytes32 itemID = gtcr.itemList(i);
+            QueryResult memory item = getItem(_address, itemID);
+            hasMore = true;
+            if (
+                (_filter[0] && item.status == GeneralizedTCR.Status.Absent) ||
+                (_filter[1] && item.status == GeneralizedTCR.Status.Registered) ||
+                (_filter[2] && item.status == GeneralizedTCR.Status.RegistrationRequested && !item.disputed) ||
+                (_filter[3] && item.status == GeneralizedTCR.Status.ClearingRequested && !item.disputed) ||
+                (_filter[4] && item.status == GeneralizedTCR.Status.RegistrationRequested && item.disputed) ||
+                (_filter[5] && item.status == GeneralizedTCR.Status.ClearingRequested && item.disputed) ||
+                (_filter[6] && item.requester == _party) ||
+                (_filter[7] && item.challenger == _party)
+            ) {
+                count++;
+                if (iterations > _count) {
+                    hasMore = true;
+                }
+            }
         }
     }
 
