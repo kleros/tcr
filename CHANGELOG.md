@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.9](https://github.com/kleros/tcr/compare/v0.1.8...v0.1.9) (2019-08-28)
+
+### Bug Fixes
+
+- queryItems returning only one item with oldestFirst == false ([fd82dc6](https://github.com/kleros/tcr/commit/fd82dc6))
+
 ### [0.1.8](https://github.com/kleros/tcr/compare/v0.1.7...v0.1.8) (2019-08-27)
 
 ### Features
