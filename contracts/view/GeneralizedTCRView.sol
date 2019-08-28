@@ -151,10 +151,7 @@ contract GeneralizedTCRView {
 
     function findIndexForPage(
         address _address,
-        uint _page,
-        uint _itemsPerPage,
-        uint _cursorIndex,
-        uint _count,
+        uint[4] calldata _targets, // targets[0] == _page, targest[1] == _itemsPerPage, targets[2] == _count, targets[3] = _cursor
         bool[8] calldata _filter,
         bool _oldestFirst,
         address _party
@@ -164,11 +161,20 @@ contract GeneralizedTCRView {
         returns (uint index, bool hasMore)
     {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
-        for (uint i = _oldestFirst ? _cursorIndex : gtcr.itemCount() - _cursorIndex - 1; i < gtcr.itemCount(); i++) {
-            bytes32 itemID = gtcr.itemList(_oldestFirst ? i : gtcr.itemCount() - i - 1);
+        uint index = 0;
+        uint count = _targets[2];
+        uint currPage = 1;
+        uint itemsMatched = 0;
+
+        // Start iterating from the end if the _cursorIndex is 0 and _oldestFirst is false.
+        // Keep the cursor as is otherwise.
+        uint i = _oldestFirst ? _targets[3] : _targets[3] == 0 ? gtcr.itemCount() - 1 : _targets[3];
+
+        for(; _oldestFirst ? i < gtcr.itemCount() && count > 0 : i >= 0 && count > 0; ) {
+            bytes32 itemID = gtcr.itemList(i);
             QueryResult memory item = getItem(_address, itemID);
+            hasMore = true;
             if (
-                /* solium-disable operator-whitespace */
                 (_filter[0] && item.status == GeneralizedTCR.Status.Absent) ||
                 (_filter[1] && item.status == GeneralizedTCR.Status.Registered) ||
                 (_filter[2] && item.status == GeneralizedTCR.Status.RegistrationRequested && !item.disputed) ||
@@ -177,18 +183,21 @@ contract GeneralizedTCRView {
                 (_filter[5] && item.status == GeneralizedTCR.Status.ClearingRequested && item.disputed) ||
                 (_filter[6] && item.requester == _party) ||
                 (_filter[7] && item.challenger == _party)
-                /* solium-enable operator-whitespace */
             ) {
-                if (index < _count) {
-                    if (index / _itemsPerPage == _page) {
-                        return (index, hasMore);
-                    }
-                    index++;
-                } else {
-                    hasMore = true;
-                    break;
+                itemsMatched++;
+                if (itemsMatched % _targets[1] == 0) {
+                    currPage++;
+                    if (currPage == _targets[0]) return (_oldestFirst ? i + 1 : i - 1, hasMore);
                 }
             }
+            count--;
+            if (count == 0 || (i == 0 && !_oldestFirst) || (i == gtcr.itemCount() - 1 && _oldestFirst)) {
+                hasMore = _oldestFirst ? i < gtcr.itemCount() - 1 : i > 0;
+                break;
+            }
+            // Move cursor to the left or right depending on _oldestFirst.
+            // Also prevents underflow if the cursor is at the first item.
+            i = _oldestFirst ? i + 1 : i == 0 ? 0 : i - 1;
         }
     }
 
@@ -224,12 +233,17 @@ contract GeneralizedTCRView {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         results = new QueryResult[](_count);
         uint index = 0;
+        uint count = _count;
 
-        for (uint i = _oldestFirst ? _cursorIndex : gtcr.itemCount() - _cursorIndex - 1; i < gtcr.itemCount(); i++) {
-            bytes32 itemID = gtcr.itemList(_oldestFirst ? i : gtcr.itemCount() - i - 1);
+        // Start iterating from the end if the _cursorIndex is 0 and _oldestFirst is false.
+        // Keep the cursor as is otherwise.
+        uint i = _oldestFirst ? _cursorIndex : _cursorIndex == 0 ? gtcr.itemCount() - 1 : _cursorIndex;
+
+        for(; _oldestFirst ? i < gtcr.itemCount() && count > 0 : i >= 0 && count > 0; ) {
+            bytes32 itemID = gtcr.itemList(i);
             QueryResult memory item = getItem(_address, itemID);
+            hasMore = true;
             if (
-                /* solium-disable operator-whitespace */
                 (_filter[0] && item.status == GeneralizedTCR.Status.Absent) ||
                 (_filter[1] && item.status == GeneralizedTCR.Status.Registered) ||
                 (_filter[2] && item.status == GeneralizedTCR.Status.RegistrationRequested && !item.disputed) ||
@@ -238,16 +252,18 @@ contract GeneralizedTCRView {
                 (_filter[5] && item.status == GeneralizedTCR.Status.ClearingRequested && item.disputed) ||
                 (_filter[6] && item.requester == _party) ||
                 (_filter[7] && item.challenger == _party)
-                /* solium-enable operator-whitespace */
             ) {
-                if (index < _count) {
-                    results[index] = item;
-                    index++;
-                } else {
-                    hasMore = true;
-                    break;
-                }
+                results[index] = item;
+                index++;
             }
+            count--;
+            if (count == 0 || (i == 0 && !_oldestFirst) || (i == gtcr.itemCount() - 1 && _oldestFirst)) {
+                hasMore = _oldestFirst ? i < gtcr.itemCount() - 1 : i > 0;
+                break;
+            }
+            // Move cursor to the left or right depending on _oldestFirst.
+            // Also prevents underflow if the cursor is at the first item.
+            i = _oldestFirst ? i + 1 : i == 0 ? 0 : i - 1;
         }
     }
 
