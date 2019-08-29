@@ -58,6 +58,10 @@ contract GeneralizedTCRView {
         uint MULTIPLIER_DIVISOR;
     }
 
+    /** @dev Fetch arbitrable TCR data in a single call.
+     *  @param _address The address of the Generalized TCR to query.
+     *  @return The latest data on an arbitrable TCR contract.
+     */
     function fetchArbitrable(address _address) external view returns (ArbitrableData memory result) {
         GeneralizedTCR tcr = GeneralizedTCR(_address);
         result.governor = tcr.governor();
@@ -73,6 +77,11 @@ contract GeneralizedTCRView {
         result.MULTIPLIER_DIVISOR = tcr.MULTIPLIER_DIVISOR();
     }
 
+    /** @dev Fetch the latest data on an item in a single call.
+     *  @param _address The address of the Generalized TCR to query.
+     *  @param _itemID The ID of the item to query.
+     *  @return The item data.
+     */
     function getItem(address _address, bytes32 _itemID) public view returns (QueryResult memory result) {
         RoundData memory round = getRoundData(_address, _itemID);
         result = QueryResult({
@@ -111,7 +120,7 @@ contract GeneralizedTCRView {
      *  Item [18, 'PNK', 'Pinakion', '0xca35b7d915458ef540ade6068dfe2f44e8fa733c']
      *  RLP encoded: 0xe383504e4b128850696e616b696f6e94ca35b7d915458ef540ade6068dfe2f44e8fa733c
      *  Input for remix: ["0xe3","0x83","0x50","0x4e","0x4b","0x12","0x88","0x50","0x69","0x6e","0x61","0x6b","0x69","0x6f","0x6e","0x94","0xca","0x35","0xb7","0xd9","0x15","0x45","0x8e","0xf5","0x40","0xad","0xe6","0x06","0x8d","0xfe","0x2f","0x44","0xe8","0xfa","0x73","0x3c"]
-     *  @param _address The address of the GTCR to query.
+     *  @param _address The address of the Generalized TCR to query.
      *  @param _rlpEncodedMatch The RLP encoded item to match against the items on the list.
      *  @param _cursor The index from where to start looking for matches.
      *  @param _returnCount The size of the array to return with matching values.
@@ -149,10 +158,33 @@ contract GeneralizedTCRView {
         return results;
     }
 
+    /** @dev Find the starting position the first item of a page of items for a given filter.
+     *  @param _address The address of the Generalized TCR to query.
+     *  @param _targets The targets to use for the query. Each element of the array in sequence means:
+     *  - The page to search;
+     *  - The number of items per page;
+     *  - The number of items to iterate when searching;
+     *  - The position from where to start iterating.
+     *  @param _filter The filter to use. Each element of the array in sequence means:
+     *  - Include absent items in result;
+     *  - Include registered items in result;
+     *  - Include items with registration requests that are not disputed in result;
+     *  - Include items with clearing requests that are not disputed in result;
+     *  - Include disputed items with registration requests in result;
+     *  - Include disputed items with clearing requests in result;
+     *  - Include items with a request by _party;
+     *  - Include items challenged by _party.
+     *  - Whether to sort from oldest to the newest item.
+     *  @param _party The address to use if checking for items with a request or challenged by a specific party.
+     *  @return The query result:
+     *  - Index of the page, if it was found;
+     *  - Whether there are more items to iterate;
+     *  - If the index of the page we are searching was found.
+     */
     function findIndexForPage(
         address _address,
-        uint[4] calldata _targets, // targets[0] == _page, targest[1] == _itemsPerPage, targets[2] == _count, targets[3] = _cursor
-        bool[9] calldata _filter, // The list item of the filter is _oldestFirst
+        uint[4] calldata _targets,
+        bool[9] calldata _filter,
         address _party
     )
         external
@@ -206,6 +238,25 @@ contract GeneralizedTCRView {
         return (i, hasMore, false);
     }
 
+    /** @dev Count the number of items for a given filter.
+     *  @param _address The address of the Generalized TCR to query.
+     *  @param _cursorIndex The index of the items from which to start iterating. To start from either the oldest or newest item.
+     *  @param _count The number of items to return.
+     *  @param _filter The filter to use. Each element of the array in sequence means:
+     *  - Include absent items in result;
+     *  - Include registered items in result;
+     *  - Include items with registration requests that are not disputed in result;
+     *  - Include items with clearing requests that are not disputed in result;
+     *  - Include disputed items with registration requests in result;
+     *  - Include disputed items with clearing requests in result;
+     *  - Include items with a request by _party;
+     *  - Include items challenged by _party.
+     *  @param _party The address to use if checking for items with a request or challenged by a specific party.
+     *  @return The query result:
+     *  - The number of items found for the filter;
+     *  - Whether there are more items to iterate;
+     *  - The index of the last item of the query. Useful as a starting point for the next query if counting in multiple steps.
+     */
     function countWithFilter(address _address, uint _cursorIndex, uint _count, bool[8] calldata _filter, address _party)
         external
         view
@@ -242,16 +293,16 @@ contract GeneralizedTCRView {
      *  @param _cursorIndex The index of the items from which to start iterating. To start from either the oldest or newest item.
      *  @param _count The number of items to return.
      *  @param _filter The filter to use. Each element of the array in sequence means:
-     *  - Include absent items in result.
-     *  - Include registered items in result.
-     *  - Include items with registration requests that are not disputed in result.
-     *  - Include items with clearing requests that are not disputed in result.
-     *  - Include disputed items with registration requests in result.
-     *  - Include disputed items with clearing requests in result.
-     *  - Include items submitted by _party.
+     *  - Include absent items in result;
+     *  - Include registered items in result;
+     *  - Include items with registration requests that are not disputed in result;
+     *  - Include items with clearing requests that are not disputed in result;
+     *  - Include disputed items with registration requests in result;
+     *  - Include disputed items with clearing requests in result;
+     *  - Include items with a request by _party;
      *  - Include items challenged by _party.
      *  @param _oldestFirst Whether to sort from oldest to the newest item.
-     *  @param _party The address to use if checking for items submitted or challenged by a specific party.
+     *  @param _party The address to use if checking for items with a request or challenged by a specific party.
      *  @return The data of the items found and whether there are more items for the current filter and sort.
      */
     function queryItems(
