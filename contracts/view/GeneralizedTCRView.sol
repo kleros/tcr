@@ -9,8 +9,7 @@
 pragma solidity ^0.5.11;
 pragma experimental ABIEncoderV2;
 
-import { GeneralizedTCR } from "../GeneralizedTCR.sol";
-import { Arbitrator } from "@kleros/erc-792/contracts/Arbitrator.sol";
+import { GeneralizedTCR, Arbitrator } from "../GeneralizedTCR.sol";
 import { BytesLib } from "solidity-bytes-utils/contracts/BytesLib.sol";
 import { RLPReader } from "solidity-rlp/contracts/RLPReader.sol";
 
@@ -441,5 +440,4 @@ contract GeneralizedTCRView {
             feeRewards
         );
     }
-
 }
