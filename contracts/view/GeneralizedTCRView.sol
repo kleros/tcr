@@ -234,6 +234,9 @@ contract GeneralizedTCRView {
             i = _filter[8] ? i + 1 : i == 0 ? 0 : i - 1;
         }
 
+        if (itemsMatched < _targets[1]) // If there aren't enought items in the TCR to fill a page, return the first or the last.
+            return (_filter[8] ? 0 : gtcr.itemCount() - 1, false, true);
+
         return (i, hasMore, false);
     }
 
