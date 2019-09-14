@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.13](https://github.com/kleros/tcr/compare/v0.1.12...v0.1.13) (2019-09-14)
+
+### Bug Fixes
+
+- remove unecessary vars ([834ec94](https://github.com/kleros/tcr/commit/834ec94))
+- use a more descriptive function name ([83963d1](https://github.com/kleros/tcr/commit/83963d1))
+- wrong page index when there aren't enought items to fill a page ([de1fb2d](https://github.com/kleros/tcr/commit/de1fb2d))
+
+### Features
+
+- add getItemRequests function, docs and remove unused vars ([f14a6d0](https://github.com/kleros/tcr/commit/f14a6d0))
+- also return the number of requests and make methods public ([6f48a5b](https://github.com/kleros/tcr/commit/6f48a5b))
+
 ### [0.1.12](https://github.com/kleros/tcr/compare/v0.1.11...v0.1.12) (2019-08-28)
 
 ### Bug Fixes
