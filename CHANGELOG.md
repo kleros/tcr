@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.15](https://github.com/kleros/tcr/compare/v0.1.14...v0.1.15) (2019-09-14)
+
+### Bug Fixes
+
+- readd item requests and remove simple request ([2d3dd74](https://github.com/kleros/tcr/commit/2d3dd74))
+
 ### [0.1.14](https://github.com/kleros/tcr/compare/v0.1.13...v0.1.14) (2019-09-14)
 
 ### Features
