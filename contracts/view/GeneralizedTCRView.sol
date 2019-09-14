@@ -83,7 +83,7 @@ contract GeneralizedTCRView {
      *  @return The item data.
      */
     function getItem(address _address, bytes32 _itemID) public view returns (QueryResult memory result) {
-        RoundData memory round = getRoundData(_address, _itemID);
+        RoundData memory round = getLatestRoundRequestData(_address, _itemID);
         result = QueryResult({
             ID: _itemID,
             data: round.request.item.data,
@@ -455,7 +455,7 @@ contract GeneralizedTCRView {
      *  @param _itemID The ID of the item to query.
      *  @return The round data.
      */
-    function getRequestData(address _address, bytes32 _itemID) public view returns (RequestData memory request)  {
+    function getLatestRequestData(address _address, bytes32 _itemID) public view returns (RequestData memory request)  {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         ItemData memory item = getItemData(_address, _itemID);
         (
@@ -488,9 +488,9 @@ contract GeneralizedTCRView {
      *  @param _itemID The ID of the item to query.
      *  @return The round data.
      */
-    function getRoundData(address _address, bytes32 _itemID) public view returns (RoundData memory round)  {
+    function getLatestRoundRequestData(address _address, bytes32 _itemID) public view returns (RoundData memory round)  {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
-        RequestData memory request = getRequestData(_address, _itemID);
+        RequestData memory request = getLatestRequestData(_address, _itemID);
         (
             bool appealed,
             uint[3] memory paidFees,
