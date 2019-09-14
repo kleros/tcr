@@ -41,7 +41,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
 
     struct Item {
         bytes data; // The data describing the item.
-        Status status; // The status of the item.
+        Status status; // The current status of the item.
         Request[] requests; // List of status change requests made for the item.
     }
 
@@ -59,6 +59,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
         Party ruling; // The final ruling given, if any.
         Arbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
+        Status requestType; // The intent of the request. Used to keep a history of the request.
     }
 
     struct Round {
@@ -508,6 +509,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
         request.submissionTime = now;
         request.arbitrator = arbitrator;
         request.arbitratorExtraData = arbitratorExtraData;
+        request.requestType = item.status;
         Round storage round = request.rounds[request.rounds.length++];
 
         uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
@@ -662,7 +664,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
             uint numberOfRounds,
             Party ruling,
             Arbitrator arbitrator,
-            bytes memory arbitratorExtraData
+            bytes memory arbitratorExtraData,
+            Status requestType
         )
     {
         Request storage request = items[_itemID].requests[_request];
@@ -675,7 +678,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
             request.rounds.length,
             request.ruling,
             request.arbitrator,
-            request.arbitratorExtraData
+            request.arbitratorExtraData,
+            request.requestType
         );
     }
 
