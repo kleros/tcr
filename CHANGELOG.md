@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.14](https://github.com/kleros/tcr/compare/v0.1.13...v0.1.14) (2019-09-14)
+
+### Features
+
+- save request type in storage for history ([67d8eed](https://github.com/kleros/tcr/commit/67d8eed))
+
 ### [0.1.13](https://github.com/kleros/tcr/compare/v0.1.12...v0.1.13) (2019-09-14)
 
 ### Bug Fixes
