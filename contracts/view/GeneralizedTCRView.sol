@@ -116,6 +116,57 @@ contract GeneralizedTCRView {
         }
     }
 
+    struct ItemRequest {
+        bool disputed;
+        uint disputeID;
+        uint submissionTime;
+        bool resolved;
+        address requester;
+        address challenger;
+        uint numberOfRounds;
+        GeneralizedTCR.Party ruling;
+        address arbitrator;
+        bytes arbitratorExtraData;
+    }
+
+    /** @dev Fetch all requests for an item.
+     *  @param _address The address of the Generalized TCR to query.
+     *  @param _itemID The ID of the item to query.
+     *  @return The items requests.
+     */
+    function getItemRequests(address _address, bytes32 _itemID) external view returns (ItemRequest[] memory requests) {
+        GeneralizedTCR gtcr = GeneralizedTCR(_address);
+        ItemData memory itemData = getItemData(_address, _itemID);
+        requests = new ItemRequest[](itemData.numberOfRequests);
+        for (uint i = 0; i < itemData.numberOfRequests; i++) {
+            (
+                bool disputed,
+                uint disputeID,
+                uint submissionTime,
+                bool resolved,
+                address payable[3] memory parties,
+                uint numberOfRounds,
+                GeneralizedTCR.Party ruling,
+                Arbitrator arbitrator,
+                bytes memory arbitratorExtraData
+            ) = gtcr.getRequestInfo(_itemID, i);
+
+            // Sort requests by newest first.
+            requests[itemData.numberOfRequests - i - 1] = ItemRequest({
+                disputed: disputed,
+                disputeID: disputeID,
+                submissionTime: submissionTime,
+                resolved: resolved,
+                requester: parties[uint(GeneralizedTCR.Party.Requester)],
+                challenger: parties[uint(GeneralizedTCR.Party.Challenger)],
+                numberOfRounds: numberOfRounds,
+                ruling: GeneralizedTCR.Party(ruling),
+                arbitrator: address(arbitrator),
+                arbitratorExtraData: arbitratorExtraData
+            });
+        }
+    }
+
     /** @dev Find an item by matching column values. TODO: Update this to iterate a limited number of items per call.
      *  - Example:
      *  Item [18, 'PNK', 'Pinakion', '0xca35b7d915458ef540ade6068dfe2f44e8fa733c']
@@ -124,7 +175,6 @@ contract GeneralizedTCRView {
      *  @param _address The address of the Generalized TCR to query.
      *  @param _rlpEncodedMatch The RLP encoded item to match against the items on the list.
      *  @param _cursor The index from where to start looking for matches.
-     *  @param _returnCount The size of the array to return with matching values.
      *  @param _count The number of items to iterate while searching.
      *  @return An array with items that match the query.
      */
@@ -132,7 +182,6 @@ contract GeneralizedTCRView {
         address _address,
         bytes memory _rlpEncodedMatch,
         uint _cursor,
-        uint _returnCount,
         uint _count
     )
         public
@@ -357,6 +406,8 @@ contract GeneralizedTCRView {
         }
     }
 
+
+    // Functions and structs below used mainly to avoid stack limit.
     struct ItemData {
         bytes data;
         GeneralizedTCR.Status status;
@@ -384,6 +435,11 @@ contract GeneralizedTCRView {
         uint feeRewards;
     }
 
+    /** @dev Fetch data of the an item and return a struct.
+     *  @param _address The address of the Generalized TCR to query.
+     *  @param _itemID The ID of the item to query.
+     *  @return The round data.
+     */
     function getItemData(address _address, bytes32 _itemID) public view returns(ItemData memory item) {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         (
@@ -394,6 +450,11 @@ contract GeneralizedTCRView {
         item = ItemData(data, status, numberOfRequests);
     }
 
+    /** @dev Fetch the latest request of item.
+     *  @param _address The address of the Generalized TCR to query.
+     *  @param _itemID The ID of the item to query.
+     *  @return The round data.
+     */
     function getRequestData(address _address, bytes32 _itemID) public view returns (RequestData memory request)  {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         ItemData memory item = getItemData(_address, _itemID);
@@ -422,6 +483,11 @@ contract GeneralizedTCRView {
         );
     }
 
+    /** @dev Fetch the latest round of the latest request of an item.
+     *  @param _address The address of the Generalized TCR to query.
+     *  @param _itemID The ID of the item to query.
+     *  @return The round data.
+     */
     function getRoundData(address _address, bytes32 _itemID) public view returns (RoundData memory round)  {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         RequestData memory request = getRequestData(_address, _itemID);
