@@ -116,19 +116,55 @@ contract GeneralizedTCRView {
         }
     }
 
+    struct ItemRequest {
+        bool disputed;
+        uint disputeID;
+        uint submissionTime;
+        bool resolved;
+        address requester;
+        address challenger;
+        GeneralizedTCR.Party ruling;
+        address arbitrator;
+        bytes arbitratorExtraData;
+        GeneralizedTCR.Status requestType;
+    }
+
     /** @dev Fetch all requests for an item.
      *  @param _address The address of the Generalized TCR to query.
      *  @param _itemID The ID of the item to query.
      *  @return The items requests.
      */
-    function getItemRequests(address _address, bytes32 _itemID) external view returns (SimpleRequest[] memory requests) {
+    function getItemRequests(address _address, bytes32 _itemID) external view returns (ItemRequest[] memory requests) {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         ItemData memory itemData = getItemData(_address, _itemID);
-        requests = new SimpleRequest[](itemData.numberOfRequests);
+        requests = new ItemRequest[](itemData.numberOfRequests);
+        for (uint i = 0; i < itemData.numberOfRequests; i++) {
+            (
+                bool disputed,
+                uint disputeID,
+                uint submissionTime,
+                bool resolved,
+                address payable[3] memory parties,
+                ,
+                GeneralizedTCR.Party ruling,
+                Arbitrator arbitrator,
+                bytes memory arbitratorExtraData,
+                GeneralizedTCR.Status requestType
+            ) = gtcr.getRequestInfo(_itemID, i);
 
-        for (uint i = 0; i < itemData.numberOfRequests; i) {
             // Sort requests by newest first.
-            requests[itemData.numberOfRequests - i - 1] = getSimpleRequest(_address, _itemID, i);
+            requests[itemData.numberOfRequests - i - 1] = ItemRequest({
+                disputed: disputed,
+                disputeID: disputeID,
+                submissionTime: submissionTime,
+                resolved: resolved,
+                requester: parties[uint(GeneralizedTCR.Party.Requester)],
+                challenger: parties[uint(GeneralizedTCR.Party.Challenger)],
+                ruling: GeneralizedTCR.Party(ruling),
+                arbitrator: address(arbitrator),
+                arbitratorExtraData: arbitratorExtraData,
+                requestType: requestType
+            });
         }
     }
 
@@ -390,16 +426,6 @@ contract GeneralizedTCRView {
         GeneralizedTCR.Party ruling;
         Arbitrator arbitrator;
         bytes arbitratorExtraData;
-        GeneralizedTCR.Status requestType;
-    }
-
-    struct SimpleRequest {
-        uint disputeID;
-        uint submissionTime;
-        address payable[3] parties;
-        Arbitrator arbitrator;
-        bytes arbitratorExtraData;
-        GeneralizedTCR.Status requestType;
     }
 
     struct RoundData {
@@ -425,46 +451,6 @@ contract GeneralizedTCRView {
         item = ItemData(data, status, numberOfRequests);
     }
 
-    /** @dev Fetch the a request of an item.
-     *  @param _address The address of the Generalized TCR to query.
-     *  @param _itemID The ID of the item to query.
-     *  @return The round data.
-     */
-    function getSimpleRequest(address _address, bytes32 _itemID, uint _request) public view returns (SimpleRequest memory request)  {
-        GeneralizedTCR gtcr = GeneralizedTCR(_address);
-
-        // Using arrays to get around stack limit.
-        // targets[0]: disputeID
-        // targets[1]: submissionTime
-        uint[] memory targets = new uint[](2);
-        address payable[3] memory parties;
-        GeneralizedTCR.Party ruling;
-        Arbitrator arbitrator;
-        bytes memory arbitratorExtraData;
-        GeneralizedTCR.Status requestType;
-        (
-            ,
-            targets[0],
-            targets[1],
-            ,
-            parties,
-            ,
-            ,
-            arbitrator,
-            arbitratorExtraData,
-            requestType
-        ) = gtcr.getRequestInfo(_itemID, _request);
-
-        request = SimpleRequest({
-            disputeID: targets[0],
-            submissionTime: targets[1],
-            parties: parties,
-            arbitrator: arbitrator,
-            arbitratorExtraData: arbitratorExtraData,
-            requestType: requestType
-        });
-    }
-
     /** @dev Fetch the latest request of item.
      *  @param _address The address of the Generalized TCR to query.
      *  @param _itemID The ID of the item to query.
@@ -483,7 +469,6 @@ contract GeneralizedTCRView {
             GeneralizedTCR.Party ruling,
             Arbitrator arbitrator,
             bytes memory arbitratorExtraData,
-            GeneralizedTCR.Status requestType
         ) = gtcr.getRequestInfo(_itemID, item.numberOfRequests - 1);
         request = RequestData(
             item,
@@ -495,8 +480,7 @@ contract GeneralizedTCRView {
             numberOfRounds,
             ruling,
             arbitrator,
-            arbitratorExtraData,
-            requestType
+            arbitratorExtraData
         );
     }
 
