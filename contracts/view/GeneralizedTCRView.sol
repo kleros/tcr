@@ -41,6 +41,7 @@ contract GeneralizedTCRView {
         uint submissionTime;
         uint[3] paidFees;
         Arbitrator.DisputeStatus disputeStatus;
+        uint numberOfRequests;
     }
 
     struct ArbitrableData {
@@ -104,7 +105,8 @@ contract GeneralizedTCRView {
             feeRewards: round.feeRewards,
             submissionTime: round.request.submissionTime,
             paidFees: round.paidFees,
-            disputeStatus: Arbitrator.DisputeStatus.Waiting
+            disputeStatus: Arbitrator.DisputeStatus.Waiting,
+            numberOfRequests: round.request.item.numberOfRequests
         });
         if (round.request.disputed && round.request.arbitrator.disputeStatus(result.disputeID) == Arbitrator.DisputeStatus.Appealable) {
             result.currentRuling = GeneralizedTCR.Party(round.request.arbitrator.currentRuling(result.disputeID));
@@ -234,9 +236,6 @@ contract GeneralizedTCRView {
             i = _filter[8] ? i + 1 : i == 0 ? 0 : i - 1;
         }
 
-        if (itemsMatched < _targets[1]) // If there aren't enought items in the TCR to fill a page, return the first or the last.
-            return (_filter[8] ? 0 : gtcr.itemCount() - 1, false, true);
-
         return (i, hasMore, false);
     }
 
@@ -358,9 +357,6 @@ contract GeneralizedTCRView {
         }
     }
 
-    // Internal
-    // The structs and internal methods below are used to get around solidity stack limit.
-
     struct ItemData {
         bytes data;
         GeneralizedTCR.Status status;
@@ -388,7 +384,7 @@ contract GeneralizedTCRView {
         uint feeRewards;
     }
 
-    function getItemData(address _address, bytes32 _itemID) internal view returns(ItemData memory item) {
+    function getItemData(address _address, bytes32 _itemID) public view returns(ItemData memory item) {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         (
             bytes memory data,
@@ -398,7 +394,7 @@ contract GeneralizedTCRView {
         item = ItemData(data, status, numberOfRequests);
     }
 
-    function getRequestData(address _address, bytes32 _itemID) internal view returns (RequestData memory request)  {
+    function getRequestData(address _address, bytes32 _itemID) public view returns (RequestData memory request)  {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         ItemData memory item = getItemData(_address, _itemID);
         (
@@ -426,7 +422,7 @@ contract GeneralizedTCRView {
         );
     }
 
-    function getRoundData(address _address, bytes32 _itemID) internal view returns (RoundData memory round)  {
+    function getRoundData(address _address, bytes32 _itemID) public view returns (RoundData memory round)  {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         RequestData memory request = getRequestData(_address, _itemID);
         (
