@@ -19,6 +19,9 @@
     "build": "truffle compile",
     "release": "standard-version"
   },
+  "files": [
+    "build/contracts/*.json"
+  ],
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"
