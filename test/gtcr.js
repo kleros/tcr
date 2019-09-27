@@ -181,17 +181,17 @@ contract('GTCR', function(accounts) {
       'The event has not been created'
     )
     assert.equal(
-      txAddItem.logs[0].args.itemID,
+      txAddItem.logs[0].args._itemID,
       itemID,
       'The event has wrong item ID'
     )
     assert.equal(
-      txAddItem.logs[0].args.requestIndex.toNumber(),
+      txAddItem.logs[0].args._requestIndex.toNumber(),
       0,
       'The event has wrong request index'
     )
     assert.equal(
-      txAddItem.logs[0].args.roundIndex.toNumber(),
+      txAddItem.logs[0].args._roundIndex.toNumber(),
       0,
       'The event has wrong round index'
     )
@@ -390,17 +390,17 @@ contract('GTCR', function(accounts) {
       'The event has not been created'
     )
     assert.equal(
-      txExecute.logs[0].args.itemID,
+      txExecute.logs[0].args._itemID,
       itemID,
       'The event has wrong item ID'
     )
     assert.equal(
-      txExecute.logs[0].args.requestIndex.toNumber(),
+      txExecute.logs[0].args._requestIndex.toNumber(),
       0,
       'The event has wrong request index'
     )
     assert.equal(
-      txExecute.logs[0].args.roundIndex.toNumber(),
+      txExecute.logs[0].args._roundIndex.toNumber(),
       0,
       'The event has wrong round index'
     )
@@ -450,17 +450,17 @@ contract('GTCR', function(accounts) {
       'The event has not been created'
     )
     assert.equal(
-      txCancel.logs[0].args.itemID,
+      txCancel.logs[0].args._itemID,
       itemID,
       'The event has wrong item ID'
     )
     assert.equal(
-      txCancel.logs[0].args.requestIndex.toNumber(),
+      txCancel.logs[0].args._requestIndex.toNumber(),
       0,
       'The event has wrong request index'
     )
     assert.equal(
-      txCancel.logs[0].args.roundIndex.toNumber(),
+      txCancel.logs[0].args._roundIndex.toNumber(),
       0,
       'The event has wrong round index'
     )
