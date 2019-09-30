@@ -101,11 +101,11 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
 
     /**
      *  @dev Emitted when a party makes a request, dispute or appeals are raised, or when a request is resolved.
-     *  @param itemID The ID of the affected item.
-     *  @param requestIndex The index of the latest request.
-     *  @param roundIndex The index of the latest round.
+     *  @param _itemID The ID of the affected item.
+     *  @param _requestIndex The index of the latest request.
+     *  @param _roundIndex The index of the latest round.
      */
-    event ItemStatusChange(bytes32 indexed itemID, uint requestIndex, uint roundIndex);
+    event ItemStatusChange(bytes32 indexed _itemID, uint _requestIndex, uint _roundIndex);
 
     /**
      *  @dev Constructs the arbitrable curated registry.
