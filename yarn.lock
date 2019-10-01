@@ -1252,6 +1252,11 @@
     react-scripts "3.0.1"
     web3 "1.0.0-beta.37"
 
+"@kleros/ethereum-libraries@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@kleros/ethereum-libraries/-/ethereum-libraries-1.0.0.tgz#9a2f0b2511bb6e526d5f251e9ca195a3d044551a"
+  integrity sha512-CoeIbYZ0XPox/YllsDMdRmhayHhGGYCpquiyl1wlC4z3ar80TfoSrj231fxnJBMzI7ctzg927Dg02U1OYVHqKg==
+
 "@kleros/kathari@^0.23.0":
   version "0.23.0"
   resolved "https://registry.yarnpkg.com/@kleros/kathari/-/kathari-0.23.0.tgz#8694d3b04d68caaaf4e67fb3351d422bd2f1d69e"
