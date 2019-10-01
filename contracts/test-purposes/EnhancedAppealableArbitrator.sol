@@ -1,3 +1,11 @@
+/**
+ *  @authors: [@epiqueras, @unknownunknown1, @mtsalenc]
+ *  @reviewers: []
+ *  @auditors: []
+ *  @bounties: []
+ *  @deployments: []
+ */
+
 pragma solidity ^0.5.11;
 
 import "./AppealableArbitrator.sol";
@@ -10,6 +18,7 @@ import "./AppealableArbitrator.sol";
 contract EnhancedAppealableArbitrator is AppealableArbitrator {
     /* Constructor */
 
+    /* solium-disable no-empty-blocks */
     /** @dev Constructs the `EnhancedAppealableArbitrator` contract.
      *  @param _arbitrationPrice The amount to be paid for arbitration.
      *  @param _arbitrator The back up arbitrator.
@@ -22,6 +31,7 @@ contract EnhancedAppealableArbitrator is AppealableArbitrator {
         bytes memory _arbitratorExtraData,
         uint _timeOut
     ) public AppealableArbitrator(_arbitrationPrice, _arbitrator, _arbitratorExtraData, _timeOut) {}
+    /* solium-enable no-empty-blocks */
 
     /* Public Views */
 

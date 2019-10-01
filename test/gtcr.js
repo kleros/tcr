@@ -83,7 +83,6 @@ contract('GTCR', function(accounts) {
     assert.equal(await gtcr.sharedStakeMultiplier(), sharedStakeMultiplier)
     assert.equal(await gtcr.winnerStakeMultiplier(), winnerStakeMultiplier)
     assert.equal(await gtcr.loserStakeMultiplier(), loserStakeMultiplier)
-    assert.equal(await gtcr.supportsInterface('0x311a6c56'), true)
   })
 
   it('Should set the correct values and fire the event when requesting registration', async () => {

@@ -11,15 +11,14 @@ pragma solidity ^0.5.11;
 /* solium-disable max-len*/
 import { IArbitrable, Arbitrator } from "@kleros/erc-792/contracts/Arbitrator.sol";
 import { IEvidence } from "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
-import { ERC165 } from "@openzeppelin/contracts/introspection/ERC165.sol";
-import "./libraries/CappedMath.sol";
+import { CappedMath } from "@kleros/ethereum-libraries/contracts/CappedMath.sol";
 
 /**
  *  @title GeneralizedTCR
  *  This contract is a curated registry for any types of items. Just like TCR contract it uses request-challenge protocol and crowdfunding, but also has new features such as badges and request cancellation.
  *  The badges are queried through queryItems function of connnected TCR which address can be set either in a constructor or in a respective governance function.
  */
-contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
+contract GeneralizedTCR is IArbitrable, IEvidence {
     using CappedMath for uint;
 
     /* Enums */
@@ -149,11 +148,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence, ERC165 {
         sharedStakeMultiplier = _sharedStakeMultiplier;
         winnerStakeMultiplier = _winnerStakeMultiplier;
         loserStakeMultiplier = _loserStakeMultiplier;
-
-        // Register implentation of the IArbitrable interface for
-        // EIP-165 introspection.
-        // bytes4(keccak256('rule(uint,uint)')) == 0x311a6c56
-        _registerInterface(0x311a6c56);
     }
 
     /* External and Public */

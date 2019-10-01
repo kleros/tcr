@@ -1,6 +1,6 @@
 /**
 *  https://contributing.kleros.io/smart-contract-workflow
-*  @authors: [@epiqueras, @ferittuncer]
+*  @authors: [@epiqueras, @ferittuncer, @unknownunknown1, @mtsalenc]
 *  @reviewers: []
 *  @auditors: []
 *  @bounties: []
@@ -15,7 +15,7 @@ import "./CentralizedArbitrator.sol";
  *  @title AppealableArbitrator
  *  @dev A centralized arbitrator that can be appealed.
  */
-contract AppealableArbitrator is CentralizedArbitrator, Arbitrable {
+contract AppealableArbitrator is CentralizedArbitrator, IArbitrable {
     /* Structs */
 
     struct AppealDispute {
@@ -24,11 +24,21 @@ contract AppealableArbitrator is CentralizedArbitrator, Arbitrable {
         uint appealDisputeID;
     }
 
+    /* Modifiers */
+
+    modifier onlyArbitrator {require(msg.sender == address(arbitrator), "Can only be called by the arbitrator."); _;}
+    modifier requireAppealFee(uint _disputeID, bytes memory _extraData) {
+        require(msg.value >= appealCost(_disputeID, _extraData), "Not enough ETH to cover appeal costs.");
+        _;
+    }
+
     /* Storage */
 
     uint public timeOut;
     mapping(uint => AppealDispute) public appealDisputes;
     mapping(uint => uint) public appealDisputeIDsToDisputeIDs;
+    Arbitrator public arbitrator;
+    bytes public arbitratorExtraData; // Extra data to require particular dispute and appeal behaviour.
 
     /* Constructor */
 
@@ -43,7 +53,7 @@ contract AppealableArbitrator is CentralizedArbitrator, Arbitrable {
         Arbitrator _arbitrator,
         bytes memory _arbitratorExtraData,
         uint _timeOut
-    ) public CentralizedArbitrator(_arbitrationPrice) Arbitrable(_arbitrator, _arbitratorExtraData) {
+    ) public CentralizedArbitrator(_arbitrationPrice) {
         timeOut = _timeOut;
     }
 
@@ -81,7 +91,6 @@ contract AppealableArbitrator is CentralizedArbitrator, Arbitrable {
      *  @param _extraData Additional info about the appeal.
      */
     function appeal(uint _disputeID, bytes memory _extraData) public payable requireAppealFee(_disputeID, _extraData) {
-        super.appeal(_disputeID, _extraData);
         if (appealDisputes[_disputeID].arbitrator != Arbitrator(address(0)))
             appealDisputes[_disputeID].arbitrator.appeal.value(msg.value)(appealDisputes[_disputeID].appealDisputeID, _extraData);
         else {
@@ -113,6 +122,17 @@ contract AppealableArbitrator is CentralizedArbitrator, Arbitrable {
                 emit AppealPossible(_disputeID, disputes[_disputeID].arbitrated);
             }
         }
+    }
+
+    /** @dev Give a ruling for a dispute. Must be called by the arbitrator.
+     *  The purpose of this function is to ensure that the address calling it has the right to rule on the contract.
+     *  @param _disputeID ID of the dispute in the Arbitrator contract.
+     *  @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Not able/wanting to make a decision".
+     */
+    function rule(uint _disputeID, uint _ruling) public onlyArbitrator {
+        emit Ruling(Arbitrator(msg.sender),_disputeID,_ruling);
+
+        executeRuling(_disputeID,_ruling);
     }
 
     /* Public Views */

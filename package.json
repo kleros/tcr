@@ -1,6 +1,6 @@
 {
   "name": "@kleros/tcr",
-  "version": "0.1.15",
+  "version": "0.1.18",
   "description": "Arbitrable Permission Lists on Ethereum",
   "main": "index.js",
   "repository": "https://github.com/kleros/tcr",
@@ -45,7 +45,7 @@
   },
   "dependencies": {
     "@kleros/erc-792": "^1.0.0",
-    "@openzeppelin/contracts": "^2.3.0",
+    "@kleros/ethereum-libraries": "^1.0.0",
     "chai": "^4.2.0",
     "openzeppelin-test-helpers": "^0.4.3",
     "solidity-bytes-utils": "^0.0.8",
