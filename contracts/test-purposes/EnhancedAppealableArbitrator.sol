@@ -1,3 +1,11 @@
+/**
+ *  @authors: [@epiqueras, @unknownunknown1, @mtsalenc]
+ *  @reviewers: []
+ *  @auditors: []
+ *  @bounties: []
+ *  @deployments: []
+ */
+
 pragma solidity ^0.5.11;
 
 import "./AppealableArbitrator.sol";
