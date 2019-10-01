@@ -28,9 +28,8 @@ contract CentralizedArbitrator is Arbitrator {
     }
 
     modifier onlyOwner {require(msg.sender==owner, "Can only be called by the owner."); _;}
-
-    modifier requireAppealFee(uint _disputeID, bytes memory _extraData) {
-        require(msg.value >= appealCost(_disputeID, _extraData), "Not enough ETH to cover appeal costs.");
+    modifier requireArbitrationFee(bytes memory _extraData) {
+        require(msg.value >= arbitrationCost(_extraData), "Not enough ETH to cover arbitration costs.");
         _;
     }
 
@@ -73,7 +72,7 @@ contract CentralizedArbitrator is Arbitrator {
      *  @param _extraData Can be used to give additional info on the dispute to be created.
      *  @return disputeID ID of the dispute created.
      */
-    function createDispute(uint _choices, bytes memory _extraData) public payable returns(uint disputeID)  {
+    function createDispute(uint _choices, bytes memory _extraData) public payable requireArbitrationFee(_extraData) returns(uint disputeID)  {
         disputeID = disputes.push(DisputeStruct({
             arbitrated: IArbitrable(msg.sender),
             choices: _choices,

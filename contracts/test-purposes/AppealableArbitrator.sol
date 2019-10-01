@@ -27,6 +27,10 @@ contract AppealableArbitrator is CentralizedArbitrator, IArbitrable {
     /* Modifiers */
 
     modifier onlyArbitrator {require(msg.sender == address(arbitrator), "Can only be called by the arbitrator."); _;}
+    modifier requireAppealFee(uint _disputeID, bytes memory _extraData) {
+        require(msg.value >= appealCost(_disputeID, _extraData), "Not enough ETH to cover appeal costs.");
+        _;
+    }
 
     /* Storage */
 
