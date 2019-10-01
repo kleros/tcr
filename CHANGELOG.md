@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.18](https://github.com/kleros/tcr/compare/v0.1.15...v0.1.18) (2019-10-01)
+
+### Features
+
+- **GTCR.sol:** test file ([#7](https://github.com/kleros/tcr/issues/7)) ([963bf28](https://github.com/kleros/tcr/commit/963bf28))
+- remove support for EIP165 to avoid complexity ([1e83dbc](https://github.com/kleros/tcr/commit/1e83dbc))
+- use kleros libraries instead of local contracts ([64db9fd](https://github.com/kleros/tcr/commit/64db9fd))
+
 ### [0.1.15](https://github.com/kleros/tcr/compare/v0.1.14...v0.1.15) (2019-09-14)
 
 ### Bug Fixes
