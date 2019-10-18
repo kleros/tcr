@@ -106,6 +106,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      */
     event ItemStatusChange(bytes32 indexed _itemID, uint _requestIndex, uint _roundIndex);
 
+    event ItemSubmitted(bytes32 indexed _itemID, bytes data);
+
     /**
      *  @dev Constructs the arbitrable curated registry.
      *  @param _arbitrator The trusted arbitrator to resolve potential disputes.
@@ -490,6 +492,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         if (item.requests.length == 0) {
             item.data = _item;
             itemList.push(itemID);
+
+            emit ItemSubmitted(itemID, item.data);
         }
         if (item.status == Status.Absent)
             item.status = Status.RegistrationRequested;

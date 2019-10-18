@@ -175,22 +175,22 @@ contract('GTCR', function(accounts) {
     )
 
     assert.equal(
-      txAddItem.logs[0].event,
+      txAddItem.logs[1].event,
       'ItemStatusChange',
       'The event has not been created'
     )
     assert.equal(
-      txAddItem.logs[0].args._itemID,
+      txAddItem.logs[1].args._itemID,
       itemID,
       'The event has wrong item ID'
     )
     assert.equal(
-      txAddItem.logs[0].args._requestIndex.toNumber(),
+      txAddItem.logs[1].args._requestIndex.toNumber(),
       0,
       'The event has wrong request index'
     )
     assert.equal(
-      txAddItem.logs[0].args._roundIndex.toNumber(),
+      txAddItem.logs[1].args._roundIndex.toNumber(),
       0,
       'The event has wrong round index'
     )
