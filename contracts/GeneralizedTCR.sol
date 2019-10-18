@@ -91,6 +91,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     bytes32[] public itemList; // List of IDs of all submitted items.
     mapping(bytes32 => Item) public items; // Maps the item ID to its data. items[_itemID].
     mapping(address => mapping(uint => bytes32)) public arbitratorDisputeIDToItem;  // Maps a dispute ID to the ID of the item with the disputed request. arbitratorDisputeIDToItem[arbitrator][disputeID].
+    mapping(bytes32 => uint) public itemIDtoIndex; // Maps an item's ID to its position in the list.
 
      /* Modifiers */
 
@@ -106,7 +107,13 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      */
     event ItemStatusChange(bytes32 indexed _itemID, uint _requestIndex, uint _roundIndex);
 
-    event ItemSubmitted(bytes32 indexed _itemID, bytes data);
+    /**
+     *  @dev Emitted when a party requests an item to be registered for the first time.
+     *  @param _itemID The ID of the affected item.
+     *  @param _submitter The address of the requester.
+     *  @param _data The item data.
+     */
+    event ItemSubmitted(bytes32 indexed _itemID, address indexed _submitter, bytes _data);
 
     /**
      *  @dev Constructs the arbitrable curated registry.
@@ -492,8 +499,9 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         if (item.requests.length == 0) {
             item.data = _item;
             itemList.push(itemID);
+            itemIDtoIndex[itemID] = itemList.length - 1;
 
-            emit ItemSubmitted(itemID, item.data);
+            emit ItemSubmitted(itemID, msg.sender, item.data);
         }
         if (item.status == Status.Absent)
             item.status = Status.RegistrationRequested;
