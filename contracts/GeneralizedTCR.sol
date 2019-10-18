@@ -116,6 +116,24 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     event ItemSubmitted(bytes32 indexed _itemID, address indexed _submitter, bytes _data);
 
     /**
+     *  @dev Emitted when a party contributes to an appeal.
+     *  @param _itemID The ID of the item with a dispute.
+     *  @param _contributor The address making the contribution.
+     *  @param _request The index disputed request.
+     *  @param _round The index of the round receiving the contribution.
+     *  @param _amount The amount of the contribution.
+     *  @param _side The party receiving the contribution.
+     */
+    event AppealContribution(
+        bytes32 indexed _itemID,
+        address indexed _contributor,
+        uint indexed _request,
+        uint _round,
+        uint _amount,
+        Party _side
+    );
+
+    /**
      *  @dev Constructs the arbitrable curated registry.
      *  @param _arbitrator The trusted arbitrator to resolve potential disputes.
      *  @param _arbitratorExtraData Extra data for the trusted arbitrator contract.
@@ -234,12 +252,11 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      */
     function fundAppeal(bytes32 _itemID, Party _side) external payable {
         require(_side == Party.Requester || _side == Party.Challenger); // solium-disable-line error-reason
-        Item storage item = items[_itemID];
         require(
-            item.status == Status.RegistrationRequested || item.status == Status.ClearingRequested,
+            items[_itemID].status == Status.RegistrationRequested || items[_itemID].status == Status.ClearingRequested,
             "The item must have a pending request."
         );
-        Request storage request = item.requests[item.requests.length - 1];
+        Request storage request = items[_itemID].requests[items[_itemID].requests.length - 1];
         require(request.disputed, "A dispute must have been raised to fund an appeal.");
         (uint appealPeriodStart, uint appealPeriodEnd) = request.arbitrator.appealPeriod(request.disputeID);
         require(
@@ -256,17 +273,30 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             loser = Party.Requester;
         require(!(_side==loser) || (now-appealPeriodStart < (appealPeriodEnd-appealPeriodStart)/2), "The loser must contribute during the first half of the appeal period.");
 
-        uint multiplier;
+        // Use array to get around stack limit.
+        // 0: multiplier
+        // 1: contribution
+        uint[2] memory values = [uint(0), uint(0)];
         if (_side == winner)
-            multiplier = winnerStakeMultiplier;
+            values[0] = winnerStakeMultiplier;
         else if (_side == loser)
-            multiplier = loserStakeMultiplier;
+            values[0] = loserStakeMultiplier;
         else
-            multiplier = sharedStakeMultiplier;
+            values[0] = sharedStakeMultiplier;
 
         uint appealCost = request.arbitrator.appealCost(request.disputeID, request.arbitratorExtraData);
-        uint totalCost = appealCost.addCap((appealCost.mulCap(multiplier)) / MULTIPLIER_DIVISOR);
-        contribute(round, _side, msg.sender, msg.value, totalCost);
+        uint totalCost = appealCost.addCap((appealCost.mulCap(values[0])) / MULTIPLIER_DIVISOR);
+        values[1] = contribute(round, _side, msg.sender, msg.value, totalCost);
+
+        emit AppealContribution(
+            _itemID,
+            msg.sender,
+            items[_itemID].requests.length - 1,
+            request.rounds.length - 1,
+            values[1],
+            _side
+        );
+
         if (round.paidFees[uint(_side)] >= totalCost)
             round.hasPaid[uint(_side)] = true;
 
@@ -552,7 +582,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _amount The amount contributed.
      *  @param _totalRequired The total amount required for this side.
      */
-    function contribute(Round storage _round, Party _side, address payable _contributor, uint _amount, uint _totalRequired) internal {
+    function contribute(Round storage _round, Party _side, address payable _contributor, uint _amount, uint _totalRequired) internal returns (uint) {
         // Take up to the amount necessary to fund the current round at the current costs.
         uint contribution; // Amount contributed.
         uint remainingETH; // Remaining ETH to send back.
@@ -563,6 +593,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
         // Reimburse leftover ETH.
         _contributor.send(remainingETH); // Deliberate use of send in order to not block the contract in case of reverting fallback.
+
+        return contribution;
     }
 
     /** @dev Execute the ruling of a dispute.
