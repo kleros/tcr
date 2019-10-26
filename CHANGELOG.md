@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.19](https://github.com/kleros/tcr/compare/v0.1.15...v0.1.19) (2019-10-26)
+
+### Bug Fixes
+
+- lock meta evidence and close [#5](https://github.com/kleros/tcr/issues/5) ([08ff5f8](https://github.com/kleros/tcr/commit/08ff5f8))
+
+### Features
+
+- **GTCR.sol:** test file ([#7](https://github.com/kleros/tcr/issues/7)) ([963bf28](https://github.com/kleros/tcr/commit/963bf28))
+- emit event on appeal crowdfunding contribution ([7ab6860](https://github.com/kleros/tcr/commit/7ab6860))
+- emit event when someone submits a request ([2f52566](https://github.com/kleros/tcr/commit/2f52566))
+- save the item's position on the list ([1deb2be](https://github.com/kleros/tcr/commit/1deb2be))
+- submit event on item submission ([#9](https://github.com/kleros/tcr/issues/9)) ([5d66530](https://github.com/kleros/tcr/commit/5d66530))
+
 ### [0.1.18](https://github.com/kleros/tcr/compare/v0.1.15...v0.1.18) (2019-10-01)
 
 ### Features
