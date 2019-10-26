@@ -714,7 +714,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             Party ruling,
             Arbitrator arbitrator,
             bytes memory arbitratorExtraData,
-            Status requestType
+            Status requestType,
+            uint metaEvidenceID
         )
     {
         Request storage request = items[_itemID].requests[_request];
@@ -728,7 +729,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             request.ruling,
             request.arbitrator,
             request.arbitratorExtraData,
-            request.requestType
+            request.requestType,
+            request.metaEvidenceID
         );
     }
 
