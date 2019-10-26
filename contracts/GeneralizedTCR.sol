@@ -109,12 +109,19 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     event ItemStatusChange(bytes32 indexed _itemID, uint _requestIndex, uint _roundIndex);
 
     /**
-     *  @dev Emitted when a party requests an item to be registered for the first time.
+     *  @dev Emitted when a someone submits an item for the first time.
      *  @param _itemID The ID of the affected item.
      *  @param _submitter The address of the requester.
      *  @param _data The item data.
      */
     event ItemSubmitted(bytes32 indexed _itemID, address indexed _submitter, bytes _data);
+
+    /**
+     *  @dev Emitted when someone submits a request.
+     *  @param _itemID The ID of the affected item.
+     *  @param _submitter The address of the requester.
+     */
+    event RequestSubmitted(bytes32 indexed _itemID, address indexed _submitter);
 
     /**
      *  @dev Emitted when a party contributes to an appeal.
@@ -558,6 +565,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         round.hasPaid[uint(Party.Requester)] = true;
 
         emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1);
+        emit RequestSubmitted(itemID, msg.sender);
     }
 
     /** @dev Returns the contribution value and remainder from available ETH and required amount.
