@@ -59,6 +59,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Arbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
         Status requestType; // The intent of the request. Used to keep a history of the request.
+        uint metaEvidenceID; // The meta evidence to be used in a dispute for this case.
     }
 
     struct Round {
@@ -236,9 +237,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         emit Dispute(
             request.arbitrator,
             request.disputeID,
-            item.status == Status.RegistrationRequested
-                ? 2 * metaEvidenceUpdates
-                : 2 * metaEvidenceUpdates + 1,
+            request.metaEvidenceID,
             uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1)))
         );
 
@@ -533,19 +532,23 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
             emit ItemSubmitted(itemID, msg.sender, item.data);
         }
-        if (item.status == Status.Absent)
-            item.status = Status.RegistrationRequested;
-        else if (item.status == Status.Registered)
-            item.status = Status.ClearingRequested;
-        else
-            revert("Item already has a pending request.");
 
         Request storage request = item.requests[item.requests.length++];
+        if (item.status == Status.Absent) {
+            item.status = Status.RegistrationRequested;
+            request.metaEvidenceID = 2 * metaEvidenceUpdates;
+        } else if (item.status == Status.Registered) {
+            item.status = Status.ClearingRequested;
+            request.metaEvidenceID = 2 * metaEvidenceUpdates + 1;
+        } else
+            revert("Item already has a pending request.");
+
         request.parties[uint(Party.Requester)] = msg.sender;
         request.submissionTime = now;
         request.arbitrator = arbitrator;
         request.arbitratorExtraData = arbitratorExtraData;
         request.requestType = item.status;
+
         Round storage round = request.rounds[request.rounds.length++];
 
         uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
