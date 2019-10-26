@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.21](https://github.com/kleros/tcr/compare/v0.1.19...v0.1.21) (2019-10-26)
+
+### Features
+
+- return the meta evidence ID for the request ([4ba27ec](https://github.com/kleros/tcr/commit/4ba27ec))
+
 ### [0.1.19](https://github.com/kleros/tcr/compare/v0.1.15...v0.1.19) (2019-10-26)
 
 ### Bug Fixes
