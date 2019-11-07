@@ -15,7 +15,7 @@ import { CappedMath } from "@kleros/ethereum-libraries/contracts/CappedMath.sol"
 
 /**
  *  @title GeneralizedTCR
- *  This contract is a curated registry for any types of items. Just like TCR contract it uses request-challenge protocol and crowdfunding, but also has new features such as badges and request cancellation.
+ *  This contract is a curated registry for any types of items. Just like a TCR contract it uses request-challenge protocol and crowdfunding, but also has new features such as badges and request cancellation.
  *  The badges are queried through queryItems function of connnected TCR which address can be set either in a constructor or in a respective governance function.
  */
 contract GeneralizedTCR is IArbitrable, IEvidence {
@@ -78,8 +78,10 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     uint RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
 
     address public governor; // The address that can make governance changes to the parameters of the contract.
-    uint public requesterBaseDeposit; // The base deposit to make a request.
-    uint public challengerBaseDeposit; // The base deposit to challenge a request.
+    uint public submissionBaseDeposit; // The base deposit to submit an item.
+    uint public removalBaseDeposit; // The base deposit to remove an item.
+    uint public submissionChallengeBaseDeposit; // The base deposit to challenge a submission.
+    uint public removalChallengeBaseDeposit; // The base deposit to challenge a removal request.
     uint public challengePeriodDuration; // The time before a request becomes executable if not challenged.
     uint public metaEvidenceUpdates; // The number of times the meta evidence has been updated. Used to track the latest meta evidence ID.
 
@@ -142,15 +144,17 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     );
 
     /**
-     *  @dev Constructs the arbitrable curated registry.
+     *  @dev Constructs the arbitrable curated registry. The arbitrator is trusted to support appeal periods and not reenter.
      *  @param _arbitrator The trusted arbitrator to resolve potential disputes.
      *  @param _arbitratorExtraData Extra data for the trusted arbitrator contract.
      *  @param _connectedTCR The address of the TCR that stores related TCR addresses. This parameter can be left empty.
      *  @param _registrationMetaEvidence The URI of the meta evidence object for registration requests.
      *  @param _clearingMetaEvidence The URI of the meta evidence object for clearing requests.
      *  @param _governor The trusted governor of this contract.
-     *  @param _requesterBaseDeposit The base deposit to make a request.
-     *  @param _challengerBaseDeposit The base deposit to challenge a request.
+     *  @param _submissionBaseDeposit The base deposit to submit an item.
+     *  @param _removalBaseDeposit; // The base deposit to remove an item.
+     *  @param _submissionChallengeBaseDeposit; // The base deposit to challenge a submission.
+     *  @param _removalChallengeBaseDeposit; // The base deposit to challenge a removal request.
      *  @param _challengePeriodDuration The time in seconds, parties have to challenge a request.
      *  @param _sharedStakeMultiplier Multiplier of the arbitration cost that each party must pay as fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate). In basis points.
      *  @param _winnerStakeMultiplier Multiplier of the arbitration cost that the winner has to pay as fee stake for a round in basis points.
@@ -163,8 +167,10 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         string memory _registrationMetaEvidence,
         string memory _clearingMetaEvidence,
         address _governor,
-        uint _requesterBaseDeposit,
-        uint _challengerBaseDeposit,
+        uint _submissionBaseDeposit,
+        uint _removalBaseDeposit,
+        uint _submissionChallengeBaseDeposit,
+        uint _removalChallengeBaseDeposit,
         uint _challengePeriodDuration,
         uint _sharedStakeMultiplier,
         uint _winnerStakeMultiplier,
@@ -177,8 +183,10 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         arbitratorExtraData = _arbitratorExtraData;
         connectedTCR = _connectedTCR;
         governor = _governor;
-        requesterBaseDeposit = _requesterBaseDeposit;
-        challengerBaseDeposit = _challengerBaseDeposit;
+        submissionBaseDeposit = _submissionBaseDeposit;
+        removalBaseDeposit = _removalBaseDeposit;
+        submissionChallengeBaseDeposit = _submissionChallengeBaseDeposit;
+        removalChallengeBaseDeposit = _removalChallengeBaseDeposit;
         challengePeriodDuration = _challengePeriodDuration;
         sharedStakeMultiplier = _sharedStakeMultiplier;
         winnerStakeMultiplier = _winnerStakeMultiplier;
@@ -197,7 +205,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     function addItem(bytes calldata _item) external payable {
         bytes32 itemID = keccak256(_item);
         require(items[itemID].status == Status.Absent, "Item must be absent to be added.");
-        requestStatusChange(_item);
+        requestStatusChange(_item, submissionBaseDeposit);
     }
 
     /** @dev Submit a request to remove the an item from the list. Accepts enough ETH to cover potential dispute, reimburses the rest.
@@ -206,12 +214,12 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     function removeItem(bytes calldata _item) external payable {
         bytes32 itemID = keccak256(_item);
         require(items[itemID].status == Status.Registered, "Item must be registered to be removed.");
-        requestStatusChange(_item);
+        requestStatusChange(_item, removalBaseDeposit);
     }
 
     /** @dev Challenges the request of the item. Accepts enough ETH to cover potential dispute, reimburses the rest.
      *  @param _itemID The ID of the item which request to challenge.
-     *  @param _evidence A link to an evidence using its URI. Ignored if not provided or if not enough funds were provided to create a dispute.
+     *  @param _evidence A link to an evidence using its URI. Ignored if not provided.
      */
     function challengeRequest(bytes32 _itemID, string calldata _evidence) external payable {
         Item storage item = items[_itemID];
@@ -227,8 +235,11 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
         request.parties[uint(Party.Challenger)] = msg.sender;
 
-        Round storage round = request.rounds[request.rounds.length - 1];
+        Round storage round = request.rounds[0];
         uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
+        uint challengerBaseDeposit = item.status == Status.RegistrationRequested
+            ? submissionChallengeBaseDeposit
+            : removalChallengeBaseDeposit;
         uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(challengerBaseDeposit);
         contribute(round, Party.Challenger, msg.sender, msg.value, totalCost);
         require(round.paidFees[uint(Party.Challenger)] >= totalCost, "You must fully fund your side.");
@@ -270,36 +281,38 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             "Contributions must be made within the appeal period."
         );
 
+        uint multiplier;
+        // solium-disable
+        {
+            Party winner = Party(request.arbitrator.currentRuling(request.disputeID));
+            Party loser;
+            if (winner == Party.Requester)
+                loser = Party.Challenger;
+            else if (winner == Party.Challenger)
+                loser = Party.Requester;
+            require(!(_side==loser) || (now-appealPeriodStart < (appealPeriodEnd-appealPeriodStart)/2), "The loser must contribute during the first half of the appeal period.");
+
+
+            if (_side == winner)
+                multiplier = winnerStakeMultiplier;
+            else if (_side == loser)
+                multiplier = loserStakeMultiplier;
+            else
+                multiplier = sharedStakeMultiplier;
+        }
+        // solium-enable
+
         Round storage round = request.rounds[request.rounds.length - 1];
-        Party winner = Party(request.arbitrator.currentRuling(request.disputeID));
-        Party loser;
-        if (winner == Party.Requester)
-            loser = Party.Challenger;
-        else if (winner == Party.Challenger)
-            loser = Party.Requester;
-        require(!(_side==loser) || (now-appealPeriodStart < (appealPeriodEnd-appealPeriodStart)/2), "The loser must contribute during the first half of the appeal period.");
-
-        // Use array to get around stack limit.
-        // 0: multiplier
-        // 1: contribution
-        uint[2] memory values = [uint(0), uint(0)];
-        if (_side == winner)
-            values[0] = winnerStakeMultiplier;
-        else if (_side == loser)
-            values[0] = loserStakeMultiplier;
-        else
-            values[0] = sharedStakeMultiplier;
-
         uint appealCost = request.arbitrator.appealCost(request.disputeID, request.arbitratorExtraData);
-        uint totalCost = appealCost.addCap((appealCost.mulCap(values[0])) / MULTIPLIER_DIVISOR);
-        values[1] = contribute(round, _side, msg.sender, msg.value, totalCost);
+        uint totalCost = appealCost.addCap((appealCost.mulCap(multiplier)) / MULTIPLIER_DIVISOR);
+        uint contribution = contribute(round, _side, msg.sender, msg.value, totalCost);
 
         emit AppealContribution(
             _itemID,
             msg.sender,
             items[_itemID].requests.length - 1,
             request.rounds.length - 1,
-            values[1],
+            contribution,
             _side
         );
 
@@ -314,7 +327,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         }
     }
 
-    /** @dev Reimburses contributions if no disputes were raised. If a dispute was raised, sends the fee stake rewards and reimbursements proportional to the contributions made to the winner of a dispute.
+    /** @dev Reimburses contributions if no disputes were raised. If a dispute was raised, sends the fee stake rewards and reimbursements proportionally to the contributions made to the winner of a dispute.
      *  @param _beneficiary The address that made contributions to a request.
      *  @param _itemID The ID of the item submission with the request from which to withdraw.
      *  @param _request The request from which to withdraw.
@@ -381,32 +394,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _itemID, item.requests.length - 1, 0); // Automatically withdraw for the requester.
     }
 
-    /** @dev Cancels the request if the challenge period hasn't passed and no disputes were raised.
-     *  @param _itemID The ID of the item with the request to cancel.
-     */
-    function cancelRequest(bytes32 _itemID) external {
-        Item storage item = items[_itemID];
-        Request storage request = item.requests[item.requests.length - 1];
-        require(
-            now - request.submissionTime <= challengePeriodDuration,
-            "Only allowed to cancel within challenge period."
-        );
-        require(msg.sender == request.parties[uint(Party.Requester)], "Only the requester is allowed to execute this");
-        require(!request.disputed, "The request should not be disputed.");
-
-        if (item.status == Status.RegistrationRequested)
-            item.status = Status.Absent;
-        else if (item.status == Status.ClearingRequested)
-            item.status = Status.Registered;
-        else
-            revert("There must be a request.");
-
-        request.resolved = true;
-        emit ItemStatusChange(_itemID, item.requests.length - 1, request.rounds.length - 1);
-
-        withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _itemID, item.requests.length - 1, 0); // Automatically withdraw for the requester.
-    }
-
     /** @dev Give a ruling for a dispute. Can only be called by the arbitrator. TRUSTED.
      *  Overrides parent function to account for the situation where the winner loses a case due to paying less appeal fees than expected.
      *  @param _disputeID ID of the dispute in the arbitrator contract.
@@ -445,7 +432,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         emit Evidence(request.arbitrator, uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1))), msg.sender, _evidence);
     }
 
-     // ************************ //
+    // ************************ //
     // *      Governance      * //
     // ************************ //
 
@@ -456,18 +443,32 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         challengePeriodDuration = _challengePeriodDuration;
     }
 
-    /** @dev Change the base amount required as a deposit to make a request.
-     *  @param _requesterBaseDeposit The new base amount of wei required to make a request.
+    /** @dev Change the base amount required as a deposit to submit an item.
+     *  @param _submissionBaseDeposit The new base amount of wei required to submit an item.
      */
-    function changeRequesterBaseDeposit(uint _requesterBaseDeposit) external onlyGovernor {
-        requesterBaseDeposit = _requesterBaseDeposit;
+    function changeSubmissionBaseDeposit(uint _submissionBaseDeposit) external onlyGovernor {
+        submissionBaseDeposit = _submissionBaseDeposit;
     }
 
-    /** @dev Change the base amount required as a deposit to challenge a request.
-     *  @param _challengerBaseDeposit The new base amount of wei required to challenge a request.
+    /** @dev Change the base amount required as a deposit to remove an item.
+     *  @param _removalBaseDeposit The new base amount of wei required to remove an item.
      */
-    function changeChallengerBaseDeposit(uint _challengerBaseDeposit) external onlyGovernor {
-        challengerBaseDeposit = _challengerBaseDeposit;
+    function changeRemovalBaseDeposit(uint _removalBaseDeposit) external onlyGovernor {
+        removalBaseDeposit = _removalBaseDeposit;
+    }
+
+    /** @dev Change the base amount required as a deposit to challenge a submission.
+     *  @param _submissionChallengeBaseDeposit The new base amount of wei required to challenge a submission.
+     */
+    function changeSubmissionChallengeBaseDeposit(uint _submissionChallengeBaseDeposit) external onlyGovernor {
+        submissionChallengeBaseDeposit = _submissionChallengeBaseDeposit;
+    }
+
+    /** @dev Change the base amount required as a deposit to challenge a removal request.
+     *  @param _removalChallengeBaseDeposit The new base amount of wei required to challenge a removal request.
+     */
+    function changeRemovalChallengeBaseDeposit(uint _removalChallengeBaseDeposit) external onlyGovernor {
+        removalChallengeBaseDeposit = _removalChallengeBaseDeposit;
     }
 
     /** @dev Change the governor of the curated registry.
@@ -477,21 +478,21 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         governor = _governor;
     }
 
-    /** @dev Change the percentage of arbitration fees that must be paid as fee stake by parties when there is no winner or loser.
+    /** @dev Change the proportion of arbitration fees that must be paid as fee stake by parties when there is no winner or loser.
      *  @param _sharedStakeMultiplier Multiplier of arbitration fees that must be paid as fee stake. In basis points.
      */
     function changeSharedStakeMultiplier(uint _sharedStakeMultiplier) external onlyGovernor {
         sharedStakeMultiplier = _sharedStakeMultiplier;
     }
 
-    /** @dev Change the percentage of arbitration fees that must be paid as fee stake by the winner of the previous round.
+    /** @dev Change the proportion of arbitration fees that must be paid as fee stake by the winner of the previous round.
      *  @param _winnerStakeMultiplier Multiplier of arbitration fees that must be paid as fee stake. In basis points.
      */
     function changeWinnerStakeMultiplier(uint _winnerStakeMultiplier) external onlyGovernor {
         winnerStakeMultiplier = _winnerStakeMultiplier;
     }
 
-    /** @dev Change the percentage of arbitration fees that must be paid as fee stake by the party that lost the previous round.
+    /** @dev Change the proportion of arbitration fees that must be paid as fee stake by the party that lost the previous round.
      *  @param _loserStakeMultiplier Multiplier of arbitration fees that must be paid as fee stake. In basis points.
      */
     function changeLoserStakeMultiplier(uint _loserStakeMultiplier) external onlyGovernor {
@@ -529,7 +530,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     /** @dev Submit a request to change item's status. Accepts enough ETH to cover potential dispute, reimburses the rest.
      *  @param _item The data describing the item.
      */
-    function requestStatusChange(bytes memory _item) internal {
+    function requestStatusChange(bytes memory _item, uint baseDeposit) internal {
         bytes32 itemID = keccak256(_item);
         Item storage item = items[itemID];
         if (item.requests.length == 0) {
@@ -559,7 +560,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Round storage round = request.rounds[request.rounds.length++];
 
         uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
-        uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(requesterBaseDeposit);
+        uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(baseDeposit);
         contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
         require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Requester)] = true;
@@ -592,6 +593,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _contributor The contributor.
      *  @param _amount The amount contributed.
      *  @param _totalRequired The total amount required for this side.
+     *  @return The amount of appeal fees contributed.
      */
     function contribute(Round storage _round, Party _side, address payable _contributor, uint _amount, uint _totalRequired) internal returns (uint) {
         // Take up to the amount necessary to fund the current round at the current costs.
@@ -619,7 +621,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
         Party winner = Party(_ruling);
 
-        if (winner == Party.Requester) { // Execute Request
+        if (winner == Party.Requester) { // Execute Request.
             if (item.status == Status.RegistrationRequested)
                 item.status = Status.Registered;
             else if (item.status == Status.ClearingRequested)

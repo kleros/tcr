@@ -48,8 +48,10 @@ contract GeneralizedTCRView {
         address governor;
         address arbitrator;
         bytes arbitratorExtraData;
-        uint requesterBaseDeposit;
-        uint challengerBaseDeposit;
+        uint submissionBaseDeposit;
+        uint removalBaseDeposit;
+        uint submissionChallengeBaseDeposit;
+        uint removalChallengeBaseDeposit;
         uint challengePeriodDuration;
         uint metaEvidenceUpdates;
         uint winnerStakeMultiplier;
@@ -67,8 +69,10 @@ contract GeneralizedTCRView {
         result.governor = tcr.governor();
         result.arbitrator = address(tcr.arbitrator());
         result.arbitratorExtraData = tcr.arbitratorExtraData();
-        result.requesterBaseDeposit = tcr.requesterBaseDeposit();
-        result.challengerBaseDeposit = tcr.challengerBaseDeposit();
+        result.submissionBaseDeposit = tcr.submissionBaseDeposit();
+        result.removalBaseDeposit = tcr.removalBaseDeposit();
+        result.submissionChallengeBaseDeposit = tcr.submissionChallengeBaseDeposit();
+        result.removalChallengeBaseDeposit = tcr.removalChallengeBaseDeposit();
         result.challengePeriodDuration = tcr.challengePeriodDuration();
         result.metaEvidenceUpdates = tcr.metaEvidenceUpdates();
         result.winnerStakeMultiplier = tcr.winnerStakeMultiplier();
