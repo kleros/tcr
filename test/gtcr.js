@@ -87,7 +87,6 @@ contract('GTCR', function(accounts) {
   it('Should set the correct values in constructor', async () => {
     assert.equal(await gtcr.arbitrator(), arbitrator.address)
     assert.equal(await gtcr.arbitratorExtraData(), arbitratorExtraData)
-    assert.equal(await gtcr.connectedTCR(), other)
     assert.equal(await gtcr.governor(), governor)
     assert.equal(await gtcr.submissionBaseDeposit(), submissionBaseDeposit)
     assert.equal(
@@ -1100,11 +1099,15 @@ contract('GTCR', function(accounts) {
       gtcr.changeConnectedTCR(other, { from: other }),
       'The caller must be the governor.'
     )
-    await gtcr.changeConnectedTCR(other, { from: governor2 })
+
+    // Ensure `changeConnectedTCR` emits an event with the new address.
+    const txChangeConnected = await gtcr.changeConnectedTCR(governor2, {
+      from: governor2
+    })
     assert.equal(
-      await gtcr.connectedTCR(),
-      other,
-      'Incorrect connectedTCR address'
+      txChangeConnected.logs[0].args._connectedTCR,
+      governor2,
+      'The event has the wrong connectedTCR address'
     )
 
     await expectRevert(

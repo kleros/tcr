@@ -6,7 +6,7 @@
  *  @deployments: []
  */
 
-pragma solidity ^0.5.11;
+pragma solidity ^0.5.13;
 
 /* solium-disable max-len*/
 import { IArbitrable, Arbitrator } from "@kleros/erc-792/contracts/Arbitrator.sol";
@@ -15,8 +15,7 @@ import { CappedMath } from "@kleros/ethereum-libraries/contracts/CappedMath.sol"
 
 /**
  *  @title GeneralizedTCR
- *  This contract is a curated registry for any types of items. Just like a TCR contract it uses request-challenge protocol and crowdfunding, but also has new features such as badges and request cancellation.
- *  The badges are queried through queryItems function of connnected TCR which address can be set either in a constructor or in a respective governance function.
+ *  This contract is a curated registry for any types of items. Just like a TCR contract it features the request-challenge protocol and appeal fees crowdfunding.
  */
 contract GeneralizedTCR is IArbitrable, IEvidence {
     using CappedMath for uint;
@@ -71,7 +70,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /* Storage */
 
-    GeneralizedTCR public connectedTCR; // TCR that contains the addresses of other TCRs related to this one.
     Arbitrator public arbitrator; // The arbitrator contract.
     bytes public arbitratorExtraData; // Extra data to require particular dispute and appeal behaviour.
 
@@ -103,7 +101,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     /* Events */
 
     /**
-     *  @dev Emitted when a party makes a request, dispute or appeals are raised, or when a request is resolved.
+     *  @dev Emitted when a party makes a request, raises a dispute or when a request is resolved.
      *  @param _itemID The ID of the affected item.
      *  @param _requestIndex The index of the latest request.
      *  @param _roundIndex The index of the latest round.
@@ -112,7 +110,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /**
      *  @dev Emitted when a someone submits an item for the first time.
-     *  @param _itemID The ID of the affected item.
+     *  @param _itemID The ID of the new item.
      *  @param _submitter The address of the requester.
      *  @param _data The item data.
      */
@@ -129,7 +127,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @dev Emitted when a party contributes to an appeal.
      *  @param _itemID The ID of the item with a dispute.
      *  @param _contributor The address making the contribution.
-     *  @param _request The index disputed request.
+     *  @param _request The index of the disputed request.
      *  @param _round The index of the round receiving the contribution.
      *  @param _amount The amount of the contribution.
      *  @param _side The party receiving the contribution.
@@ -143,6 +141,19 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Party _side
     );
 
+    /** @dev Emitted when one of the parties successfully paid its appeal fees.
+     *  @param _itemID The ID of the affected item.
+     *  @param _request The index of the request.
+     *  @param _round The index of the round.
+     *  @param _side The side that is fully funded.
+     */
+    event HasPaidAppealFee(bytes32 indexed _itemID, uint indexed _request, uint indexed _round, Party _side);
+
+    /** @dev Emitted when the address of the connected TCR is set. The connected TCR is an instance of the Generalized TCR contract where each item is the address of a TCR related to this one.
+     *  @param _connectedTCR The address of the connected TCR.
+     */
+    event ConnectedTCRSet(address indexed _connectedTCR);
+
     /**
      *  @dev Constructs the arbitrable curated registry. The arbitrator is trusted to support appeal periods and not reenter.
      *  @param _arbitrator The trusted arbitrator to resolve potential disputes.
@@ -152,10 +163,10 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _clearingMetaEvidence The URI of the meta evidence object for clearing requests.
      *  @param _governor The trusted governor of this contract.
      *  @param _submissionBaseDeposit The base deposit to submit an item.
-     *  @param _removalBaseDeposit; // The base deposit to remove an item.
-     *  @param _submissionChallengeBaseDeposit; // The base deposit to challenge a submission.
-     *  @param _removalChallengeBaseDeposit; // The base deposit to challenge a removal request.
-     *  @param _challengePeriodDuration The time in seconds, parties have to challenge a request.
+     *  @param _removalBaseDeposit The base deposit to remove an item.
+     *  @param _submissionChallengeBaseDeposit The base deposit to challenge a submission.
+     *  @param _removalChallengeBaseDeposit The base deposit to challenge a removal request.
+     *  @param _challengePeriodDuration The time in seconds parties have to challenge a request.
      *  @param _sharedStakeMultiplier Multiplier of the arbitration cost that each party must pay as fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate). In basis points.
      *  @param _winnerStakeMultiplier Multiplier of the arbitration cost that the winner has to pay as fee stake for a round in basis points.
      *  @param _loserStakeMultiplier Multiplier of the arbitration cost that the loser has to pay as fee stake for a round in basis points.
@@ -163,7 +174,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     constructor(
         Arbitrator _arbitrator,
         bytes memory _arbitratorExtraData,
-        GeneralizedTCR _connectedTCR,
+        address _connectedTCR,
         string memory _registrationMetaEvidence,
         string memory _clearingMetaEvidence,
         address _governor,
@@ -178,10 +189,10 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     ) public {
         emit MetaEvidence(0, _registrationMetaEvidence);
         emit MetaEvidence(1, _clearingMetaEvidence);
+        emit ConnectedTCRSet(_connectedTCR);
 
         arbitrator = _arbitrator;
         arbitratorExtraData = _arbitratorExtraData;
-        connectedTCR = _connectedTCR;
         governor = _governor;
         submissionBaseDeposit = _submissionBaseDeposit;
         removalBaseDeposit = _removalBaseDeposit;
@@ -199,7 +210,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     // *       Requests       * //
     // ************************ //
 
-    /** @dev Submit a request to register the an item. Accepts enough ETH to cover potential dispute, reimburses the rest.
+    /** @dev Submit a request to register an item. Accepts enough ETH to cover potential dispute, reimburses the rest.
      *  @param _item The data describing the item.
      */
     function addItem(bytes calldata _item) external payable {
@@ -208,7 +219,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         requestStatusChange(_item, submissionBaseDeposit);
     }
 
-    /** @dev Submit a request to remove the an item from the list. Accepts enough ETH to cover potential dispute, reimburses the rest.
+    /** @dev Submit a request to remove an item from the list. Accepts enough ETH to cover potential dispute, reimburses the rest.
      *  @param _item The data describing the item.
      */
     function removeItem(bytes calldata _item) external payable {
@@ -316,8 +327,10 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             _side
         );
 
-        if (round.paidFees[uint(_side)] >= totalCost)
+        if (round.paidFees[uint(_side)] >= totalCost) {
             round.hasPaid[uint(_side)] = true;
+            emit HasPaidAppealFee(_itemID, items[_itemID].requests.length - 1, request.rounds.length - 1, _side);
+        }
 
         // Raise appeal if both sides are fully funded.
         if (round.hasPaid[uint(Party.Challenger)] && round.hasPaid[uint(Party.Requester)]) {
@@ -508,11 +521,11 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         arbitratorExtraData = _arbitratorExtraData;
     }
 
-    /** @dev Change the address of connectedTCR, the contract that stores addresses of TCRs related to this one.
-     *  @param _connectedTCR The new address of a connectedTCR contract.
+    /** @dev Change the address of connectedTCR, the Generalized TCR instance that stores addresses of TCRs related to this one.
+     *  @param _connectedTCR The address of the connectedTCR contract to use.
      */
-    function changeConnectedTCR(GeneralizedTCR _connectedTCR) external onlyGovernor {
-        connectedTCR = _connectedTCR;
+    function changeConnectedTCR(address _connectedTCR) external onlyGovernor {
+        emit ConnectedTCRSet(_connectedTCR);
     }
 
     /** @dev Update the meta evidence used for disputes.
@@ -548,8 +561,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         } else if (item.status == Status.Registered) {
             item.status = Status.ClearingRequested;
             request.metaEvidenceID = 2 * metaEvidenceUpdates + 1;
-        } else
-            revert("Item already has a pending request.");
+        }
 
         request.parties[uint(Party.Requester)] = msg.sender;
         request.submissionTime = now;

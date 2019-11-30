@@ -3,7 +3,7 @@ module.exports = {
   // to customize your Truffle configuration!
   compilers: {
     solc: {
-      version: '0.5.11', // Fetch exact version from solc-bin (default: truffle's version)
+      version: '0.5.13', // Fetch exact version from solc-bin (default: truffle's version)
       settings: {
         // See the solidity docs for advice about optimization and evmVersion
         optimizer: {
