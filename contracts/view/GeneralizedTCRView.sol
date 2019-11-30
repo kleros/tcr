@@ -6,7 +6,7 @@
  *  @deployments: []
  */
 
-pragma solidity ^0.5.11;
+pragma solidity ^0.5.13;
 pragma experimental ABIEncoderV2;
 
 import { GeneralizedTCR, Arbitrator } from "../GeneralizedTCR.sol";
