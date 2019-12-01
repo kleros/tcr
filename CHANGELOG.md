@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.24](https://github.com/kleros/tcr/compare/v0.1.21...v0.1.24) (2019-12-01)
+
+### Bug Fixes
+
+- implement clements review suggestions ([5662747](https://github.com/kleros/tcr/commit/5662747))
+- implement review suggestions ([0121161](https://github.com/kleros/tcr/commit/0121161))
+
 ### [0.1.23](https://github.com/kleros/tcr/compare/v0.1.21...v0.1.23) (2019-11-30)
 
 ### Bug Fixes

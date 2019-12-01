@@ -1,6 +1,6 @@
 {
   "name": "@kleros/tcr",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "Arbitrable Permission Lists on Ethereum",
   "main": "index.js",
   "repository": "https://github.com/kleros/tcr",
