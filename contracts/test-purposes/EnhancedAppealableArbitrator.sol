@@ -27,7 +27,7 @@ contract EnhancedAppealableArbitrator is AppealableArbitrator {
      */
     constructor(
         uint _arbitrationPrice,
-        Arbitrator _arbitrator,
+        IArbitrator _arbitrator,
         bytes memory _arbitratorExtraData,
         uint _timeOut
     ) public AppealableArbitrator(_arbitrationPrice, _arbitrator, _arbitratorExtraData, _timeOut) {}
@@ -40,7 +40,7 @@ contract EnhancedAppealableArbitrator is AppealableArbitrator {
      *  @return The start and end of the period.
      */
     function appealPeriod(uint _disputeID) public view returns(uint start, uint end) {
-        if (appealDisputes[_disputeID].arbitrator != Arbitrator(address(0)))
+        if (appealDisputes[_disputeID].arbitrator != IArbitrator(address(0)))
             (start, end) = appealDisputes[_disputeID].arbitrator.appealPeriod(appealDisputes[_disputeID].appealDisputeID);
         else {
             start = appealDisputes[_disputeID].rulingTime;

@@ -8,12 +8,12 @@
 
 pragma solidity ^0.5.11;
 
-import { Arbitrator, IArbitrable } from "@kleros/erc-792/contracts/Arbitrator.sol";
+import { IArbitrator, IArbitrable } from "@kleros/erc-792/contracts/IArbitrator.sol";
 
 /** @title Centralized Arbitrator
  *  @dev This is a centralized arbitrator deciding alone on the result of disputes. No appeals are possible.
  */
-contract CentralizedArbitrator is Arbitrator {
+contract CentralizedArbitrator is IArbitrator {
 
     address public owner = msg.sender;
     uint arbitrationPrice; // Not public because arbitrationCost already acts as an accessor.

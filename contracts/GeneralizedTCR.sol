@@ -9,7 +9,7 @@
 pragma solidity ^0.5.13;
 
 /* solium-disable max-len*/
-import { IArbitrable, Arbitrator } from "@kleros/erc-792/contracts/Arbitrator.sol";
+import { IArbitrable, IArbitrator } from "@kleros/erc-792/contracts/IArbitrator.sol";
 import { IEvidence } from "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
 import { CappedMath } from "@kleros/ethereum-libraries/contracts/CappedMath.sol";
 
@@ -55,7 +55,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         address payable[3] parties; // Address of requester and challenger, if any.
         Round[] rounds; // Tracks each round of a dispute.
         Party ruling; // The final ruling given, if any.
-        Arbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
+        IArbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
         Status requestType; // The intent of the request. Used to keep a history of the request.
         uint metaEvidenceID; // The meta evidence to be used in a dispute for this case.
@@ -70,7 +70,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /* Storage */
 
-    Arbitrator public arbitrator; // The arbitrator contract.
+    IArbitrator public arbitrator; // The arbitrator contract.
     bytes public arbitratorExtraData; // Extra data to require particular dispute and appeal behaviour.
 
     uint RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
@@ -172,7 +172,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _loserStakeMultiplier Multiplier of the arbitration cost that the loser has to pay as fee stake for a round in basis points.
      */
     constructor(
-        Arbitrator _arbitrator,
+        IArbitrator _arbitrator,
         bytes memory _arbitratorExtraData,
         address _connectedTCR,
         string memory _registrationMetaEvidence,
@@ -429,7 +429,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         else if (round.hasPaid[uint(Party.Challenger)] == true)
             resultRuling = Party.Challenger;
 
-        emit Ruling(Arbitrator(msg.sender), _disputeID, uint(resultRuling));
+        emit Ruling(IArbitrator(msg.sender), _disputeID, uint(resultRuling));
         executeRuling(_disputeID, uint(resultRuling));
     }
 
@@ -516,7 +516,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _arbitrator The new trusted arbitrator to be used in the next requests.
      *  @param _arbitratorExtraData The extra data used by the new arbitrator.
      */
-    function changeArbitrator(Arbitrator _arbitrator, bytes calldata _arbitratorExtraData) external onlyGovernor {
+    function changeArbitrator(IArbitrator _arbitrator, bytes calldata _arbitratorExtraData) external onlyGovernor {
         arbitrator = _arbitrator;
         arbitratorExtraData = _arbitratorExtraData;
     }
@@ -623,7 +623,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     }
 
     /** @dev Execute the ruling of a dispute.
-     *  @param _disputeID ID of the dispute in the Arbitrator contract.
+     *  @param _disputeID ID of the dispute in the arbitrator contract.
      *  @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Refused to arbitrate".
      */
     function executeRuling(uint _disputeID, uint _ruling) internal {
@@ -726,7 +726,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             address payable[3] memory parties,
             uint numberOfRounds,
             Party ruling,
-            Arbitrator arbitrator,
+            IArbitrator arbitrator,
             bytes memory arbitratorExtraData,
             Status requestType,
             uint metaEvidenceID

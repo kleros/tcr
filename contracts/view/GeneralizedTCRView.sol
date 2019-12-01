@@ -9,7 +9,7 @@
 pragma solidity ^0.5.13;
 pragma experimental ABIEncoderV2;
 
-import { GeneralizedTCR, Arbitrator } from "../GeneralizedTCR.sol";
+import { GeneralizedTCR, IArbitrator } from "../GeneralizedTCR.sol";
 import { BytesLib } from "solidity-bytes-utils/contracts/BytesLib.sol";
 import { RLPReader } from "solidity-rlp/contracts/RLPReader.sol";
 
@@ -40,7 +40,7 @@ contract GeneralizedTCRView {
         uint feeRewards;
         uint submissionTime;
         uint[3] paidFees;
-        Arbitrator.DisputeStatus disputeStatus;
+        IArbitrator.DisputeStatus disputeStatus;
         uint numberOfRequests;
     }
 
@@ -109,10 +109,10 @@ contract GeneralizedTCRView {
             feeRewards: round.feeRewards,
             submissionTime: round.request.submissionTime,
             paidFees: round.paidFees,
-            disputeStatus: Arbitrator.DisputeStatus.Waiting,
+            disputeStatus: IArbitrator.DisputeStatus.Waiting,
             numberOfRequests: round.request.item.numberOfRequests
         });
-        if (round.request.disputed && round.request.arbitrator.disputeStatus(result.disputeID) == Arbitrator.DisputeStatus.Appealable) {
+        if (round.request.disputed && round.request.arbitrator.disputeStatus(result.disputeID) == IArbitrator.DisputeStatus.Appealable) {
             result.currentRuling = GeneralizedTCR.Party(round.request.arbitrator.currentRuling(result.disputeID));
             result.disputeStatus = round.request.arbitrator.disputeStatus(result.disputeID);
             (result.appealStart, result.appealEnd) = round.request.arbitrator.appealPeriod(result.disputeID);
@@ -151,7 +151,7 @@ contract GeneralizedTCRView {
                 address payable[3] memory parties,
                 ,
                 ,
-                Arbitrator arbitrator,
+                IArbitrator arbitrator,
                 bytes memory arbitratorExtraData,
                 GeneralizedTCR.Status requestType,
                 uint metaEvidenceID
@@ -429,7 +429,7 @@ contract GeneralizedTCRView {
         address payable[3] parties;
         uint numberOfRounds;
         GeneralizedTCR.Party ruling;
-        Arbitrator arbitrator;
+        IArbitrator arbitrator;
         bytes arbitratorExtraData;
     }
 
@@ -472,7 +472,7 @@ contract GeneralizedTCRView {
             address payable[3] memory parties,
             uint numberOfRounds,
             GeneralizedTCR.Party ruling,
-            Arbitrator arbitrator,
+            IArbitrator arbitrator,
             bytes memory arbitratorExtraData,,
         ) = gtcr.getRequestInfo(_itemID, item.numberOfRequests - 1);
         request = RequestData(
