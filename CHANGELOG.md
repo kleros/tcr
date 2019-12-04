@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.25](https://github.com/kleros/tcr/compare/v0.1.24...v0.1.25) (2019-12-04)
+
+### Features
+
+- include the request type in RequestSubmitted event ([02bae44](https://github.com/kleros/tcr/commit/02bae44))
+
 ### [0.1.24](https://github.com/kleros/tcr/compare/v0.1.21...v0.1.24) (2019-12-01)
 
 ### Bug Fixes
