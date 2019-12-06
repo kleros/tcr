@@ -106,7 +106,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _requestIndex The index of the latest request.
      *  @param _roundIndex The index of the latest round.
      */
-    event ItemStatusChange(bytes32 indexed _itemID, uint _requestIndex, uint _roundIndex);
+    event ItemStatusChange(bytes32 indexed _itemID, uint indexed _requestIndex, uint indexed _roundIndex, bool _disputed, bool _resolved);
 
     /**
      *  @dev Emitted when a someone submits an item for the first time.
@@ -403,7 +403,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             revert("There must be a request.");
 
         request.resolved = true;
-        emit ItemStatusChange(_itemID, item.requests.length - 1, request.rounds.length - 1);
+        emit ItemStatusChange(_itemID, item.requests.length - 1, request.rounds.length - 1, false, true);
 
         withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _itemID, item.requests.length - 1, 0); // Automatically withdraw for the requester.
     }
@@ -578,7 +578,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Requester)] = true;
 
-        emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1);
+        emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1, false, false);
         emit RequestSubmitted(itemID, msg.sender, item.status);
     }
 
@@ -649,7 +649,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         request.resolved = true;
         request.ruling = Party(_ruling);
 
-        emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1);
+        emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1, true, true);
 
         // Automatically withdraw.
         if (winner == Party.None) {
