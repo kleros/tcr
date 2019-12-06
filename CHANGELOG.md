@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.27](https://github.com/kleros/tcr/compare/v0.1.24...v0.1.27) (2019-12-06)
+
+### Features
+
+- include the request type in RequestSubmitted event ([4285f96](https://github.com/kleros/tcr/commit/4285f96))
+- make index ItemStatusChange fields and add request status fields ([07f52c1](https://github.com/kleros/tcr/commit/07f52c1))
+
 ### [0.1.25](https://github.com/kleros/tcr/compare/v0.1.24...v0.1.25) (2019-12-04)
 
 ### Features
