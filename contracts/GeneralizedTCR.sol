@@ -68,6 +68,11 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         mapping(address => uint[3]) contributions; // Maps contributors to their contributions for each side.
     }
 
+    struct RequestID {
+        bytes32 itemID;
+        uint requestIndex;
+    }
+
     /* Storage */
 
     IArbitrator public arbitrator; // The arbitrator contract.
@@ -93,6 +98,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     mapping(bytes32 => Item) public items; // Maps the item ID to its data. items[_itemID].
     mapping(address => mapping(uint => bytes32)) public arbitratorDisputeIDToItem;  // Maps a dispute ID to the ID of the item with the disputed request. arbitratorDisputeIDToItem[arbitrator][disputeID].
     mapping(bytes32 => uint) public itemIDtoIndex; // Maps an item's ID to its position in the list.
+    mapping(uint => RequestID) public evidenceGroupIDToRequestID; // Maps the evidenceGroupID to a requestID. This is useful quickly find an item and request from an Evidence event.
 
      /* Modifiers */
 
@@ -271,8 +277,11 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1)))
         );
 
-        if (bytes(_evidence).length > 0)
-            emit Evidence(request.arbitrator, uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1))), msg.sender, _evidence);
+        if (bytes(_evidence).length > 0) {
+            uint evidenceGroupID = uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1)));
+            evidenceGroupIDToRequestID[evidenceGroupID] = RequestID(_itemID, item.requests.length - 1);
+            emit Evidence(request.arbitrator, evidenceGroupID, msg.sender, _evidence);
+        }
     }
 
     /** @dev Takes up to the total amount required to fund a side of an appeal. Reimburses the rest. Creates an appeal if both sides are fully funded.
@@ -443,7 +452,9 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Request storage request = item.requests[item.requests.length - 1];
         require(!request.resolved, "The dispute must not already be resolved.");
 
-        emit Evidence(request.arbitrator, uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1))), msg.sender, _evidence);
+        uint evidenceGroupID = uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1)));
+        evidenceGroupIDToRequestID[evidenceGroupID] = RequestID(_itemID, item.requests.length - 1);
+        emit Evidence(request.arbitrator, evidenceGroupID, msg.sender, _evidence);
     }
 
     // ************************ //
