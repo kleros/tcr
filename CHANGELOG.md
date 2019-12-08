@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.28](https://github.com/kleros/tcr/compare/v0.1.27...v0.1.28) (2019-12-08)
+
+### Features
+
+- include mapping of evidenceGroupID to requestID ([47f3fdf](https://github.com/kleros/tcr/commit/47f3fdf))
+
 ### [0.1.27](https://github.com/kleros/tcr/compare/v0.1.24...v0.1.27) (2019-12-06)
 
 ### Features
