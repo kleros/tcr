@@ -412,6 +412,55 @@ contract GeneralizedTCRView {
         }
     }
 
+    /** @dev Return the withdrawable rewards for a contributor.
+     *  @param _address The address of the Generalized TCR to query.
+     *  @param _itemID The ID of the item to query.
+     *  @param _contributor The address of the contributor.
+     *  @return The amount withdrawable per round per request.
+     */
+    function availableRewards(address _address, bytes32 _itemID, address _contributor) external view returns (uint rewards) {
+        GeneralizedTCR gtcr = GeneralizedTCR(_address);
+
+        // Using arrays to avoid stack limit.
+        uint[2] memory requestRoundCount = [uint(0), uint(0)];
+        uint[2] memory indexes = [uint(0), uint(0)]; // Request index and round index.
+
+        (,,requestRoundCount[0]) = gtcr.getItemInfo(_itemID);
+        for (indexes[0]; indexes[0] < requestRoundCount[0]; indexes[0]++) {
+            GeneralizedTCR.Party ruling;
+            bool resolved;
+            (,,, resolved,, requestRoundCount[1], ruling,,,,) = gtcr.getRequestInfo(_itemID, requestRoundCount[0]);
+            if (!resolved) continue;
+            for (indexes[1]; indexes[1] < requestRoundCount[1]; indexes[1]++) {
+                (
+                    ,
+                    uint[3] memory paidFees,
+                    bool[3] memory hasPaid,
+                    uint feeRewards
+                ) = gtcr.getRoundInfo(_itemID, indexes[0], indexes[1]);
+
+                uint[3] memory roundContributions = gtcr.getContributions(_itemID, indexes[0], indexes[1], _contributor);
+                if (!hasPaid[uint(GeneralizedTCR.Party.Requester)] || !hasPaid[uint(GeneralizedTCR.Party.Challenger)]) {
+                    // Amount reimbursable if not enough fees were raised to appeal the ruling.
+                    rewards += roundContributions[uint(GeneralizedTCR.Party.Requester)] + roundContributions[uint(GeneralizedTCR.Party.Challenger)];
+                } else if (ruling == GeneralizedTCR.Party.None) {
+                    // Reimbursable fees proportional if there aren't a winner and loser.
+                    rewards += paidFees[uint(GeneralizedTCR.Party.Requester)] > 0
+                        ? (roundContributions[uint(GeneralizedTCR.Party.Requester)] * feeRewards) / (paidFees[uint(GeneralizedTCR.Party.Challenger)] + paidFees[uint(GeneralizedTCR.Party.Requester)])
+                        : 0;
+                    rewards += paidFees[uint(GeneralizedTCR.Party.Challenger)] > 0
+                        ? (roundContributions[uint(GeneralizedTCR.Party.Challenger)] * feeRewards) / (paidFees[uint(GeneralizedTCR.Party.Challenger)] + paidFees[uint(GeneralizedTCR.Party.Requester)])
+                        : 0;
+                } else {
+                    // Contributors to the winner take the rewards.
+                    rewards += paidFees[uint(ruling)] > 0
+                        ? (roundContributions[uint(ruling)] * feeRewards) / paidFees[uint(ruling)]
+                        : 0;
+                }
+            }
+        }
+    }
+
 
     // Functions and structs below used mainly to avoid stack limit.
     struct ItemData {
