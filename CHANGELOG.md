@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.31](https://github.com/kleros/tcr/compare/v0.1.29...v0.1.31) (2019-12-27)
+
+### Bug Fixes
+
+- incorrect argument and iterator reset ([87b7f85](https://github.com/kleros/tcr/commit/87b7f85))
+
+### Features
+
+- add batch withdraw contract ([8e9215f](https://github.com/kleros/tcr/commit/8e9215f))
+- add view function for available rewards ([68b23d7](https://github.com/kleros/tcr/commit/68b23d7))
+
 ### [0.1.30](https://github.com/kleros/tcr/compare/v0.1.29...v0.1.30) (2019-12-27)
 
 ### Features
