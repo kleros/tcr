@@ -429,7 +429,7 @@ contract GeneralizedTCRView {
         for (indexes[0]; indexes[0] < requestRoundCount[0]; indexes[0]++) {
             GeneralizedTCR.Party ruling;
             bool resolved;
-            (,,, resolved,, requestRoundCount[1], ruling,,,,) = gtcr.getRequestInfo(_itemID, requestRoundCount[0]);
+            (,,, resolved,, requestRoundCount[1], ruling,,,,) = gtcr.getRequestInfo(_itemID, indexes[0]);
             if (!resolved) continue;
             for (indexes[1]; indexes[1] < requestRoundCount[1]; indexes[1]++) {
                 (
@@ -458,6 +458,7 @@ contract GeneralizedTCRView {
                         : 0;
                 }
             }
+            indexes[1] = 0;
         }
     }
 
