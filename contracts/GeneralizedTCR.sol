@@ -8,10 +8,13 @@
 
 pragma solidity ^0.5.15;
 
-/* solium-disable max-len*/
 import { IArbitrable, IArbitrator } from "@kleros/erc-792/contracts/IArbitrator.sol";
 import { IEvidence } from "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
 import { CappedMath } from "@kleros/ethereum-libraries/contracts/CappedMath.sol";
+
+/* solium-disable max-len */
+/* solium-disable security/no-block-members */
+/* solium-disable security/no-send */ // It is the user responsibility to accept ETH.
 
 /**
  *  @title GeneralizedTCR
@@ -111,6 +114,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _itemID The ID of the affected item.
      *  @param _requestIndex The index of the latest request.
      *  @param _roundIndex The index of the latest round.
+     *  @param _disputed Whether the request is disputed.
+     *  @param _resolved Whether the dispute is resolved, if any.
      */
     event ItemStatusChange(bytes32 indexed _itemID, uint indexed _requestIndex, uint indexed _roundIndex, bool _disputed, bool _resolved);
 
@@ -217,7 +222,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     // *       Requests       * //
     // ************************ //
 
-    /** @dev Submit a request to register an item. Accepts enough ETH to cover potential dispute, reimburses the rest.
+    /** @dev Submit a request to register an item. Accepts enough ETH to the deposit, reimburses the rest.
      *  @param _item The data describing the item.
      */
     function addItem(bytes calldata _item) external payable {
@@ -226,7 +231,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         requestStatusChange(_item, submissionBaseDeposit);
     }
 
-    /** @dev Submit a request to remove an item from the list. Accepts enough ETH to cover potential dispute, reimburses the rest.
+    /** @dev Submit a request to remove an item from the list. Accepts enough ETH to the deposit, reimburses the rest.
      *  @param _item The data describing the item.
      */
     function removeItem(bytes calldata _item) external payable {
@@ -235,7 +240,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         requestStatusChange(_item, removalBaseDeposit);
     }
 
-    /** @dev Challenges the request of the item. Accepts enough ETH to cover potential dispute, reimburses the rest.
+    /** @dev Challenges the request of the item. Accepts enough ETH to the deposit, reimburses the rest.
      *  @param _itemID The ID of the item which request to challenge.
      *  @param _evidence A link to an evidence using its URI. Ignored if not provided.
      */
@@ -289,7 +294,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _side The recipient of the contribution.
      */
     function fundAppeal(bytes32 _itemID, Party _side) external payable {
-        require(_side == Party.Requester || _side == Party.Challenger); // solium-disable-line error-reason
+        require(_side == Party.Requester || _side == Party.Challenger, "Invalid party.");
         require(
             items[_itemID].status == Status.RegistrationRequested || items[_itemID].status == Status.ClearingRequested,
             "The item must have a pending request."
@@ -302,8 +307,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             "Contributions must be made within the appeal period."
         );
 
+        /* solium-disable indentation */
         uint multiplier;
-        // solium-disable
         {
             Party winner = Party(request.arbitrator.currentRuling(request.disputeID));
             Party loser;
@@ -311,7 +316,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
                 loser = Party.Challenger;
             else if (winner == Party.Challenger)
                 loser = Party.Requester;
-            require(!(_side==loser) || (now-appealPeriodStart < (appealPeriodEnd-appealPeriodStart)/2), "The loser must contribute during the first half of the appeal period.");
+            require(_side != loser || (now-appealPeriodStart < (appealPeriodEnd-appealPeriodStart)/2), "The loser must contribute during the first half of the appeal period.");
 
 
             if (_side == winner)
@@ -321,7 +326,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             else
                 multiplier = sharedStakeMultiplier;
         }
-        // solium-enable
+        /* solium-enable indentation */
 
         Round storage round = request.rounds[request.rounds.length - 1];
         uint appealCost = request.arbitrator.appealCost(request.disputeID, request.arbitratorExtraData);
@@ -360,14 +365,12 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Item storage item = items[_itemID];
         Request storage request = item.requests[_request];
         Round storage round = request.rounds[_round];
-        require(request.resolved); // solium-disable-line error-reason
+        require(request.resolved, "Request must be resolved.");
 
         uint reward;
         if (!round.hasPaid[uint(Party.Requester)] || !round.hasPaid[uint(Party.Challenger)]) {
             // Reimburse if not enough fees were raised to appeal the ruling.
             reward = round.contributions[_beneficiary][uint(Party.Requester)] + round.contributions[_beneficiary][uint(Party.Challenger)];
-            round.contributions[_beneficiary][uint(Party.Requester)] = 0;
-            round.contributions[_beneficiary][uint(Party.Challenger)] = 0;
         } else if (request.ruling == Party.None) {
             // Reimburse unspent fees proportionally if there aren't a winner and loser.
             uint rewardRequester = round.paidFees[uint(Party.Requester)] > 0
@@ -378,18 +381,17 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
                 : 0;
 
             reward = rewardRequester + rewardChallenger;
-            round.contributions[_beneficiary][uint(Party.Requester)] = 0;
-            round.contributions[_beneficiary][uint(Party.Challenger)] = 0;
         } else {
             // Reward the winner.
             reward = round.paidFees[uint(request.ruling)] > 0
                 ? (round.contributions[_beneficiary][uint(request.ruling)] * round.feeRewards) / round.paidFees[uint(request.ruling)]
                 : 0;
 
-            round.contributions[_beneficiary][uint(request.ruling)] = 0;
         }
+        round.contributions[_beneficiary][uint(Party.Requester)] = 0;
+        round.contributions[_beneficiary][uint(Party.Challenger)] = 0;
 
-        _beneficiary.send(reward); // It is the user responsibility to accept ETH.
+        _beneficiary.send(reward);
     }
 
     /** @dev Executes a request if the challenge period passed and no one challenged the request.
@@ -418,7 +420,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     }
 
     /** @dev Give a ruling for a dispute. Can only be called by the arbitrator. TRUSTED.
-     *  Overrides parent function to account for the situation where the winner loses a case due to paying less appeal fees than expected.
+     *  Account for the situation where the winner loses a case due to paying less appeal fees than expected.
      *  @param _disputeID ID of the dispute in the arbitrator contract.
      *  @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Refused to arbitrate".
      */
@@ -429,9 +431,9 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
         Request storage request = item.requests[item.requests.length - 1];
         Round storage round = request.rounds[request.rounds.length - 1];
-        require(_ruling <= RULING_OPTIONS); // solium-disable-line error-reason
-        require(address(request.arbitrator) == msg.sender); // solium-disable-line error-reason
-        require(!request.resolved); // solium-disable-line error-reason
+        require(_ruling <= RULING_OPTIONS, "Invalid ruling option");
+        require(address(request.arbitrator) == msg.sender, "Only the arbitrator can give a ruling");
+        require(!request.resolved, "The request must not be resolved.");
 
         // The ruling is inverted if the loser paid its fees.
         if (round.hasPaid[uint(Party.Requester)] == true) // If one side paid its fees, the ruling is in its favor. Note that if the other side had also paid, an appeal would have been created.
@@ -552,7 +554,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /* Internal */
 
-    /** @dev Submit a request to change item's status. Accepts enough ETH to cover potential dispute, reimburses the rest.
+    /** @dev Submit a request to change item's status. Accepts enough ETH to the deposit, reimburses the rest.
      *  @param _item The data describing the item.
      */
     function requestStatusChange(bytes memory _item, uint baseDeposit) internal {
@@ -606,9 +608,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     {
         if (_requiredAmount > _available)
             return (_available, 0); // Take whatever is available, return 0 as leftover ETH.
-
-        remainder = _available - _requiredAmount;
-        return (_requiredAmount, remainder);
+        else
+            return (_requiredAmount, _available - _requiredAmount);
     }
 
     /** @dev Make a fee contribution.
