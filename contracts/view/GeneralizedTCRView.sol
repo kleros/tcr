@@ -181,7 +181,7 @@ contract GeneralizedTCRView {
      *  @param _address The address of the Generalized TCR to query.
      *  @param _rlpEncodedMatch The RLP encoded item to match against the items on the list.
      *  @param _cursor The index from where to start looking for matches.
-     *  @param _count The number of items to iterate while searching.
+     *  @param _count The number of items to iterate and return while searching.
      *  @return An array with items that match the query.
      */
     function findItem(
@@ -192,19 +192,20 @@ contract GeneralizedTCRView {
     )
         public
         view
-        returns (bytes[] memory)
+        returns (QueryResult[] memory results)
     {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         RLPReader.RLPItem[] memory matchItem = _rlpEncodedMatch.toRlpItem().toList();
-        bytes[] memory results = new bytes[](_count);
+        results = new QueryResult[](_count == 0 ? gtcr.itemCount() : _count);
         uint itemsFound;
 
         for(uint i = _cursor; i < (_count == 0 ? gtcr.itemCount() : _count); i++) { // Iterate over every item in storage.
-            (bytes memory itemBytes,,) = gtcr.getItemInfo(gtcr.itemList(i));
+            QueryResult memory queryResult = getItem(_address, gtcr.itemList(i));
+            bytes memory itemBytes = queryResult.data;
             RLPReader.RLPItem[] memory item = itemBytes.toRlpItem().toList();
             for (uint j = 0; j < matchItem.length; j++) { // Iterate over every column.
                 if (item[j].toBytes().equal(matchItem[j].toBytes())) {
-                    results[itemsFound] = itemBytes;
+                    results[itemsFound] = queryResult;
                     itemsFound++;
                     break;
                 }
