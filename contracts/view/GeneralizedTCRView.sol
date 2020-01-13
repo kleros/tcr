@@ -6,7 +6,7 @@
  *  @deployments: []
  */
 
-pragma solidity ^0.5.15;
+pragma solidity ^0.5.16;
 pragma experimental ABIEncoderV2;
 
 import { GeneralizedTCR, IArbitrator } from "../GeneralizedTCR.sol";
@@ -173,7 +173,7 @@ contract GeneralizedTCRView {
         }
     }
 
-    /** @dev Find an item by matching column values. TODO: Update this to iterate a limited number of items per call.
+    /** @dev Find an item by matching column values.
      *  - Example:
      *  Item [18, 'PNK', 'Pinakion', '0xca35b7d915458ef540ade6068dfe2f44e8fa733c']
      *  RLP encoded: 0xe383504e4b128850696e616b696f6e94ca35b7d915458ef540ade6068dfe2f44e8fa733c
