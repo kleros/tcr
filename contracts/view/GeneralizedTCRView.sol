@@ -13,7 +13,14 @@ import { GeneralizedTCR, IArbitrator } from "../GeneralizedTCR.sol";
 import { BytesLib } from "solidity-bytes-utils/contracts/BytesLib.sol";
 import { RLPReader } from "solidity-rlp/contracts/RLPReader.sol";
 
+/* solium-disable max-len */
+/* solium-disable security/no-block-members */
+/* solium-disable security/no-send */ // It is the user responsibility to accept ETH.
 
+/**
+ *  @title GeneralizedTCRView
+ *  A view contract to fetch, batch, parse and return GTCR contract data efficiently.
+ */
 contract GeneralizedTCRView {
     using RLPReader for RLPReader.RLPItem;
     using RLPReader for bytes;
@@ -182,13 +189,15 @@ contract GeneralizedTCRView {
      *  @param _rlpEncodedMatch The RLP encoded item to match against the items on the list.
      *  @param _cursor The index from where to start looking for matches.
      *  @param _count The number of items to iterate and return while searching.
+     *  @param _includeAbsent Include items in the absent state.
      *  @return An array with items that match the query.
      */
     function findItem(
         address _address,
         bytes memory _rlpEncodedMatch,
         uint _cursor,
-        uint _count
+        uint _count,
+        bool _includeAbsent
     )
         public
         view
@@ -200,12 +209,14 @@ contract GeneralizedTCRView {
         uint itemsFound;
 
         for(uint i = _cursor; i < (_count == 0 ? gtcr.itemCount() : _count); i++) { // Iterate over every item in storage.
-            QueryResult memory queryResult = getItem(_address, gtcr.itemList(i));
-            bytes memory itemBytes = queryResult.data;
-            RLPReader.RLPItem[] memory item = itemBytes.toRlpItem().toList();
+            QueryResult memory item = getItem(_address, gtcr.itemList(i));
+            if (!_includeAbsent && item.status == GeneralizedTCR.Status.Absent)
+                continue;
+
+            RLPReader.RLPItem[] memory itemData = item.data.toRlpItem().toList();
             for (uint j = 0; j < matchItem.length; j++) { // Iterate over every column.
-                if (item[j].toBytes().equal(matchItem[j].toBytes())) {
-                    results[itemsFound] = queryResult;
+                if (itemData[j].toBytes().equal(matchItem[j].toBytes())) {
+                    results[itemsFound] = item;
                     itemsFound++;
                     break;
                 }
