@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/kleros/tcr/compare/v1.1.0...v1.2.0) (2020-01-15)
+
+### Features
+
+- also return the arbitraion cost in fetch arbitrable ([2e3cc06](https://github.com/kleros/tcr/commit/2e3cc06))
+
 ## [1.1.0](https://github.com/kleros/tcr/compare/v1.0.3...v1.1.0) (2020-01-14)
 
 ### Features
