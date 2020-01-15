@@ -65,6 +65,7 @@ contract GeneralizedTCRView {
         uint loserStakeMultiplier;
         uint sharedStakeMultiplier;
         uint MULTIPLIER_DIVISOR;
+        uint arbitrationCost;
     }
 
     /** @dev Fetch arbitrable TCR data in a single call.
@@ -86,6 +87,7 @@ contract GeneralizedTCRView {
         result.loserStakeMultiplier = tcr.loserStakeMultiplier();
         result.sharedStakeMultiplier = tcr.sharedStakeMultiplier();
         result.MULTIPLIER_DIVISOR = tcr.MULTIPLIER_DIVISOR();
+        result.arbitrationCost = IArbitrator(result.arbitrator).arbitrationCost(result.arbitratorExtraData);
     }
 
     /** @dev Fetch the latest data on an item in a single call.
