@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](https://github.com/kleros/tcr/compare/v1.2.0...v1.3.0) (2020-01-22)
+
+### Features
+
+- add factory contract ([6906fcb](https://github.com/kleros/tcr/commit/6906fcb))
+
 ## [1.2.0](https://github.com/kleros/tcr/compare/v1.1.0...v1.2.0) (2020-01-15)
 
 ### Features
