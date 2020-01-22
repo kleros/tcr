@@ -179,9 +179,10 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _submissionChallengeBaseDeposit The base deposit to challenge a submission.
      *  @param _removalChallengeBaseDeposit The base deposit to challenge a removal request.
      *  @param _challengePeriodDuration The time in seconds parties have to challenge a request.
-     *  @param _sharedStakeMultiplier Multiplier of the arbitration cost that each party must pay as fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate). In basis points.
-     *  @param _winnerStakeMultiplier Multiplier of the arbitration cost that the winner has to pay as fee stake for a round in basis points.
-     *  @param _loserStakeMultiplier Multiplier of the arbitration cost that the loser has to pay as fee stake for a round in basis points.
+     *  @param _stakeMultipliers Multipliers of the arbitration cost in basis points that:
+     *  - Each party must pay as fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate);
+     *  - The winner has to pay as fee stake for a round;
+     *  - The looser has to pay as fee stake for a round.
      */
     constructor(
         IArbitrator _arbitrator,
@@ -195,9 +196,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         uint _submissionChallengeBaseDeposit,
         uint _removalChallengeBaseDeposit,
         uint _challengePeriodDuration,
-        uint _sharedStakeMultiplier,
-        uint _winnerStakeMultiplier,
-        uint _loserStakeMultiplier
+        uint[3] memory _stakeMultipliers
     ) public {
         emit MetaEvidence(0, _registrationMetaEvidence);
         emit MetaEvidence(1, _clearingMetaEvidence);
@@ -211,9 +210,9 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         submissionChallengeBaseDeposit = _submissionChallengeBaseDeposit;
         removalChallengeBaseDeposit = _removalChallengeBaseDeposit;
         challengePeriodDuration = _challengePeriodDuration;
-        sharedStakeMultiplier = _sharedStakeMultiplier;
-        winnerStakeMultiplier = _winnerStakeMultiplier;
-        loserStakeMultiplier = _loserStakeMultiplier;
+        sharedStakeMultiplier = _stakeMultipliers[0];
+        winnerStakeMultiplier = _stakeMultipliers[1];
+        loserStakeMultiplier = _stakeMultipliers[2];
     }
 
     /* External and Public */

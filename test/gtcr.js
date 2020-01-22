@@ -59,9 +59,7 @@ contract('GTCR', function(accounts) {
       submissionChallengeBaseDeposit,
       removalChallengeBaseDeposit,
       challengePeriodDuration,
-      sharedStakeMultiplier,
-      winnerStakeMultiplier,
-      loserStakeMultiplier,
+      [sharedStakeMultiplier, winnerStakeMultiplier, loserStakeMultiplier],
       { from: governor }
     )
 
