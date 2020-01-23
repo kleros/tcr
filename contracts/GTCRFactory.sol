@@ -12,7 +12,6 @@ import { GeneralizedTCR, IArbitrator } from "./GeneralizedTCR.sol";
 
 /* solium-disable max-len */
 
-
 /**
  *  @title GTCRFactory
  *  This contract acts as a registry for GeneralizedTCR instances.
