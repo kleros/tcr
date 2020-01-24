@@ -232,10 +232,24 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /** @dev Submit a request to remove an item from the list. Accepts enough ETH to the deposit, reimburses the rest.
      *  @param _item The data describing the item.
+     *  @param _evidence A link to an evidence using its URI. Ignored if not provided.
      */
-    function removeItem(bytes calldata _item) external payable {
+    function removeItem(bytes calldata _item,  string calldata _evidence) external payable {
         bytes32 itemID = keccak256(_item);
         require(items[itemID].status == Status.Registered, "Item must be registered to be removed.");
+
+        // Emit evidence if it was provided.
+        if (bytes(_evidence).length > 0) {
+            Item storage item = items[itemID];
+
+            // Using `length` instead of `length - 1` because a new request will be added on requestStatusChange().
+            uint requestIndex = item.requests.length;
+            uint evidenceGroupID = uint(keccak256(abi.encodePacked(itemID, requestIndex)));
+            evidenceGroupIDToRequestID[evidenceGroupID] = RequestID(itemID, requestIndex);
+
+            emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
+        }
+
         requestStatusChange(_item, removalBaseDeposit);
     }
 
