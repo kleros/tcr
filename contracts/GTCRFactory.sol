@@ -42,7 +42,7 @@ contract GTCRFactory {
      *  @param _stakeMultipliers Multiplier of the arbitration cost in basis points that:
      *  - Each party must pay as fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate);
      *  - The winner has to pay as fee stake for a round;
-     *  - The looser has to pay as fee stake for a round.
+     *  - The loser has to pay as fee stake for a round.
      */
     function deploy(
         IArbitrator _arbitrator,

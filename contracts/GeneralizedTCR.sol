@@ -60,7 +60,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Party ruling; // The final ruling given, if any.
         IArbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
-        Status requestType; // The intent of the request. Used to keep a history of the request.
+        Status requestType; // The intent of the request. Used to keep a history of the requests.
         uint metaEvidenceID; // The meta evidence to be used in a dispute for this case.
     }
 
@@ -72,8 +72,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     }
 
     struct RequestID {
-        bytes32 itemID;
-        uint requestIndex;
+        bytes32 itemID; // The keccak256 hash of the item's data.
+        uint requestIndex; // The request number, starting at zero.
     }
 
     /* Storage */
@@ -88,7 +88,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     uint public removalBaseDeposit; // The base deposit to remove an item.
     uint public submissionChallengeBaseDeposit; // The base deposit to challenge a submission.
     uint public removalChallengeBaseDeposit; // The base deposit to challenge a removal request.
-    uint public challengePeriodDuration; // The time before a request becomes executable if not challenged.
+    uint public challengePeriodDuration; // The time after which a request becomes executable if not challenged.
     uint public metaEvidenceUpdates; // The number of times the meta evidence has been updated. Used to track the latest meta evidence ID.
 
     // Multipliers are in basis points.
@@ -101,7 +101,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     mapping(bytes32 => Item) public items; // Maps the item ID to its data. items[_itemID].
     mapping(address => mapping(uint => bytes32)) public arbitratorDisputeIDToItem;  // Maps a dispute ID to the ID of the item with the disputed request. arbitratorDisputeIDToItem[arbitrator][disputeID].
     mapping(bytes32 => uint) public itemIDtoIndex; // Maps an item's ID to its position in the list.
-    mapping(uint => RequestID) public evidenceGroupIDToRequestID; // Maps the evidenceGroupID to a requestID. This is useful quickly find an item and request from an Evidence event.
+    mapping(uint => RequestID) public evidenceGroupIDToRequestID; // Maps the evidenceGroupID to a requestID. This is useful to quickly find an item and request from an Evidence event.
 
      /* Modifiers */
 
@@ -120,7 +120,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     event ItemStatusChange(bytes32 indexed _itemID, uint indexed _requestIndex, uint indexed _roundIndex, bool _disputed, bool _resolved);
 
     /**
-     *  @dev Emitted when a someone submits an item for the first time.
+     *  @dev Emitted when someone submits an item for the first time.
      *  @param _itemID The ID of the new item.
      *  @param _submitter The address of the requester.
      *  @param _data The item data.
@@ -182,7 +182,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _stakeMultipliers Multipliers of the arbitration cost in basis points that:
      *  - Each party must pay as fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate);
      *  - The winner has to pay as fee stake for a round;
-     *  - The looser has to pay as fee stake for a round.
+     *  - The loser has to pay as fee stake for a round.
      */
     constructor(
         IArbitrator _arbitrator,
@@ -221,7 +221,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     // *       Requests       * //
     // ************************ //
 
-    /** @dev Submit a request to register an item. Accepts enough ETH to the deposit, reimburses the rest.
+    /** @dev Submit a request to register an item. Accepts enough ETH to cover the deposit, reimburses the rest.
      *  @param _item The data describing the item.
      */
     function addItem(bytes calldata _item) external payable {
@@ -230,7 +230,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         requestStatusChange(_item, submissionBaseDeposit);
     }
 
-    /** @dev Submit a request to remove an item from the list. Accepts enough ETH to the deposit, reimburses the rest.
+    /** @dev Submit a request to remove an item from the list. Accepts enough ETH to cover the deposit, reimburses the rest.
      *  @param _item The data describing the item.
      *  @param _evidence A link to an evidence using its URI. Ignored if not provided.
      */
@@ -253,7 +253,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         requestStatusChange(_item, removalBaseDeposit);
     }
 
-    /** @dev Challenges the request of the item. Accepts enough ETH to the deposit, reimburses the rest.
+    /** @dev Challenges the request of the item. Accepts enough ETH to cover the deposit, reimburses the rest.
      *  @param _itemID The ID of the item which request to challenge.
      *  @param _evidence A link to an evidence using its URI. Ignored if not provided.
      */
@@ -385,7 +385,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             // Reimburse if not enough fees were raised to appeal the ruling.
             reward = round.contributions[_beneficiary][uint(Party.Requester)] + round.contributions[_beneficiary][uint(Party.Challenger)];
         } else if (request.ruling == Party.None) {
-            // Reimburse unspent fees proportionally if there aren't a winner and loser.
+            // Reimburse unspent fees proportionally if there is no winner or loser.
             uint rewardRequester = round.paidFees[uint(Party.Requester)] > 0
                 ? (round.contributions[_beneficiary][uint(Party.Requester)] * round.feeRewards) / (round.paidFees[uint(Party.Challenger)] + round.paidFees[uint(Party.Requester)])
                 : 0;
@@ -567,7 +567,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /* Internal */
 
-    /** @dev Submit a request to change item's status. Accepts enough ETH to the deposit, reimburses the rest.
+    /** @dev Submit a request to change item's status. Accepts enough ETH to cover the deposit, reimburses the rest.
      *  @param _item The data describing the item.
      */
     function requestStatusChange(bytes memory _item, uint baseDeposit) internal {
