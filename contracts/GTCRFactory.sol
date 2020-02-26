@@ -22,9 +22,9 @@ contract GTCRFactory {
      *  @dev Emitted when a new Generalized TCR contract is deployed using this factory.
      *  @param _address The address of the newly deployed Generalized TCR.
      */
-    event NewGTCR(address indexed _address);
+    event NewGTCR(GeneralizedTCR indexed _address);
 
-    address[] public instances;
+    GeneralizedTCR[] public instances;
 
     /**
      *  @dev Deploy the arbitrable curated registry. The arbitrator is trusted to support appeal periods and not reenter.
@@ -58,8 +58,7 @@ contract GTCRFactory {
         uint _challengePeriodDuration,
         uint[3] memory _stakeMultipliers
     ) public {
-        address instance = address(
-            new GeneralizedTCR(
+        GeneralizedTCR instance = new GeneralizedTCR(
                 _arbitrator,
                 _arbitratorExtraData,
                 _connectedTCR,
@@ -72,7 +71,6 @@ contract GTCRFactory {
                 _removalChallengeBaseDeposit,
                 _challengePeriodDuration,
                 _stakeMultipliers
-            )
         );
         instances.push(instance);
         emit NewGTCR(instance);
