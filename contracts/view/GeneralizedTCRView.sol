@@ -228,7 +228,7 @@ contract GeneralizedTCRView {
         return results;
     }
 
-    /** @dev Find the starting position the first item of a page of items for a given filter.
+    /** @dev Find the index of the first item of a page of items for a given filter.
      *  @param _address The address of the Generalized TCR to query.
      *  @param _targets The targets to use for the query. Each element of the array in sequence means:
      *  - The page to search;
@@ -297,7 +297,7 @@ contract GeneralizedTCRView {
             }
             count--;
             if (count == 0 || (i == 0 && !_filter[8]) || (i == gtcr.itemCount() - 1 && _filter[8])) {
-                hasMore = _filter[8] ? i < gtcr.itemCount() - 1 : i > 0;
+                hasMore = _filter[8] ? i < gtcr.itemCount() : i > 0;
                 break;
             }
             // Move cursor to the left or right depending on _oldestFirst.
@@ -305,6 +305,10 @@ contract GeneralizedTCRView {
             i = _filter[8] ? i + 1 : i == 0 ? 0 : i - 1;
         }
 
+        // If sorting by oldest first, and not enough items were found to fill a page, return the cursor index.
+        if (_filter[8] && _targets[3] + _targets[1] > _targets[3] + i) {
+            i = _targets[3];
+        }
         return (i, hasMore, false);
     }
 
