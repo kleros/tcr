@@ -1,6 +1,6 @@
 /**
  *  @authors: [@unknownunknown1, @mtsalenc]
- *  @reviewers: [@clesaege]
+ *  @reviewers: [@clesaege*]
  *  @auditors: []
  *  @bounties: []
  *  @deployments: []
@@ -123,17 +123,19 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @dev Emitted when someone submits an item for the first time.
      *  @param _itemID The ID of the new item.
      *  @param _submitter The address of the requester.
+     *  @param _evidenceGroupID Unique identifier of the evidence group the evidence belongs to.
      *  @param _data The item data.
      */
-    event ItemSubmitted(bytes32 indexed _itemID, address indexed _submitter, bytes _data);
+    event ItemSubmitted(bytes32 indexed _itemID, address indexed _submitter, uint indexed _evidenceGroupID, bytes _data);
 
     /**
      *  @dev Emitted when someone submits a request.
      *  @param _itemID The ID of the affected item.
      *  @param _submitter The address of the requester.
+     *  @param _evidenceGroupID Unique identifier of the evidence group the evidence belongs to.
      *  @param _requestType Whether it is a registration or a removal request.
      */
-    event RequestSubmitted(bytes32 indexed _itemID, address indexed _submitter, Status indexed _requestType);
+    event RequestSubmitted(bytes32 indexed _itemID, address indexed _submitter, uint indexed _evidenceGroupID, Status _requestType);
 
     /**
      *  @dev Emitted when a party contributes to an appeal.
@@ -573,12 +575,15 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     function requestStatusChange(bytes memory _item, uint baseDeposit) internal {
         bytes32 itemID = keccak256(_item);
         Item storage item = items[itemID];
+
+        // Using `length` instead of `length - 1` as index because a new request will be added.
+        uint evidenceGroupID = uint(keccak256(abi.encodePacked(itemID, item.requests.length)));
         if (item.requests.length == 0) {
             item.data = _item;
             itemList.push(itemID);
             itemIDtoIndex[itemID] = itemList.length - 1;
 
-            emit ItemSubmitted(itemID, msg.sender, item.data);
+            emit ItemSubmitted(itemID, msg.sender, evidenceGroupID, item.data);
         }
 
         Request storage request = item.requests[item.requests.length++];
@@ -605,7 +610,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         round.hasPaid[uint(Party.Requester)] = true;
 
         emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1, false, false);
-        emit RequestSubmitted(itemID, msg.sender, item.status);
+        emit RequestSubmitted(itemID, msg.sender, evidenceGroupID, item.status);
     }
 
     /** @dev Returns the contribution value and remainder from available ETH and required amount.
