@@ -571,8 +571,9 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /** @dev Submit a request to change item's status. Accepts enough ETH to cover the deposit, reimburses the rest.
      *  @param _item The data describing the item.
+     *  @param _baseDeposit The base deposit for the request.
      */
-    function requestStatusChange(bytes memory _item, uint baseDeposit) internal {
+    function requestStatusChange(bytes memory _item, uint _baseDeposit) internal {
         bytes32 itemID = keccak256(_item);
         Item storage item = items[itemID];
 
@@ -604,7 +605,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Round storage round = request.rounds[request.rounds.length++];
 
         uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
-        uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(baseDeposit);
+        uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(_baseDeposit);
         contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
         require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Requester)] = true;
