@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](https://github.com/kleros/tcr/compare/v1.4.2...v1.5.0) (2020-03-09)
+
+### Bug Fixes
+
+- don't cast instance to address ([af3fecb](https://github.com/kleros/tcr/commit/af3fecb))
+- find index when sorting oldest first ([749759f](https://github.com/kleros/tcr/commit/749759f))
+
+### Features
+
+- include evidence group in item and request events ([6635ed2](https://github.com/kleros/tcr/commit/6635ed2))
+
 ### [1.4.4](https://github.com/kleros/tcr/compare/v1.4.2...v1.4.4) (2020-02-26)
 
 ### Bug Fixes
