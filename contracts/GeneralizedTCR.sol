@@ -571,6 +571,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /** @dev Submit a request to change item's status. Accepts enough ETH to cover the deposit, reimburses the rest.
      *  @param _item The data describing the item.
+     *  @param baseDeposit The amount required to deposit for this status change.
      */
     function requestStatusChange(bytes memory _item, uint baseDeposit) internal {
         bytes32 itemID = keccak256(_item);
