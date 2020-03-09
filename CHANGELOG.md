@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.5.1](https://github.com/kleros/tcr/compare/v1.5.0...v1.5.1) (2020-03-09)
+
+### Bug Fixes
+
+- add missing docstring and be consistent with parameter names ([6cce5ac](https://github.com/kleros/tcr/commit/6cce5ac))
+
 ## [1.5.0](https://github.com/kleros/tcr/compare/v1.4.2...v1.5.0) (2020-03-09)
 
 ### Bug Fixes
