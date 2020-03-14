@@ -352,7 +352,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
                 loser = Party.Challenger;
             else if (winner == Party.Challenger)
                 loser = Party.Requester;
-            require(_side == winner || (now-appealPeriodStart < (appealPeriodEnd-appealPeriodStart)/2), "The loser must contribute during the first half of the appeal period.");
+            require(_side != loser || (now-appealPeriodStart < (appealPeriodEnd-appealPeriodStart)/2), "The loser must contribute during the first half of the appeal period.");
 
 
             if (_side == winner)
