@@ -1,6 +1,6 @@
 /**
  *  @authors: [@mtsalenc]
- *  @reviewers: [@clesaege, @unknownunknown1, @ferittuncer]
+ *  @reviewers: [@clesaege, @unknownunknown1, @ferittuncer, @satello]
  *  @auditors: []
  *  @bounties: []
  *  @deployments: []
@@ -27,8 +27,8 @@ contract GTCRFactory {
     GeneralizedTCR[] public instances;
 
     /**
-     *  @dev Deploy the arbitrable curated registry. The arbitrator is trusted to support appeal periods and not reenter.
-     *  @param _arbitrator The trusted arbitrator to resolve potential disputes.
+     *  @dev Deploy the arbitrable curated registry.
+     *  @param _arbitrator Arbitrator to resolve potential disputes. The arbitrator is trusted to support appeal periods and not reenter.
      *  @param _arbitratorExtraData Extra data for the trusted arbitrator contract.
      *  @param _connectedTCR The address of the TCR that stores related TCR addresses. This parameter can be left empty.
      *  @param _registrationMetaEvidence The URI of the meta evidence object for registration requests.
@@ -39,10 +39,10 @@ contract GTCRFactory {
      *  @param _submissionChallengeBaseDeposit The base deposit to challenge a submission.
      *  @param _removalChallengeBaseDeposit The base deposit to challenge a removal request.
      *  @param _challengePeriodDuration The time in seconds parties have to challenge a request.
-     *  @param _stakeMultipliers Multiplier of the arbitration cost in basis points that:
-     *  - Each party must pay as fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate);
-     *  - The winner has to pay as fee stake for a round;
-     *  - The loser has to pay as fee stake for a round.
+     *  @param _stakeMultipliers Multipliers of the arbitration cost in basis points (see GeneralizedTCR MULTIPLIER_DIVISOR) as follows:
+     *  - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate).
+     *  - The multiplier applied to the winner's fee stake for an appeal round.
+     *  - The multiplier applied to the loser's fee stake for an appeal round.
      */
     function deploy(
         IArbitrator _arbitrator,
