@@ -1,6 +1,6 @@
 /**
  *  @authors: [@unknownunknown1, @mtsalenc]
- *  @reviewers: [@clesaege*, @ferittuncer, @satello]
+ *  @reviewers: [@clesaege*, @ferittuncer*, @satello*]
  *  @auditors: []
  *  @bounties: []
  *  @deployments: []
@@ -112,8 +112,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     /**
      *  @dev Emitted when a party makes a request, raises a dispute or when a request is resolved.
      *  @param _itemID The ID of the affected item.
-     *  @param _requestIndex The index of the latest request.
-     *  @param _roundIndex The index of the latest round.
+     *  @param _requestIndex The index of the request.
+     *  @param _roundIndex The index of the round.
      *  @param _disputed Whether the request is disputed.
      *  @param _resolved Whether the request is executed.
      */
@@ -142,15 +142,13 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     /**
      *  @dev Emitted when someone submits a request.
      *  @param _itemID The ID of the affected item.
-     *  @param _submitter The address of the requester.
-     *  @param _evidenceGroupID Unique identifier of the evidence group the evidence belongs to.
+     *  @param _requestIndex The index of the latest request.
      *  @param _requestType Whether it is a registration or a removal request.
      */
     event RequestSubmitted(
       bytes32 indexed _itemID,
-      address indexed _submitter,
-      uint indexed _evidenceGroupID,
-      Status _requestType
+      uint indexed _requestIndex,
+      Status indexed _requestType
     );
 
     /**
@@ -254,26 +252,24 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     }
 
     /** @dev Submit a request to remove an item from the list. Accepts enough ETH to cover the deposit, reimburses the rest.
-     *  @param _item The data describing the item.
+     *  @param _itemID The ID of the item to remove.
      *  @param _evidence A link to an evidence using its URI. Ignored if not provided.
      */
-    function removeItem(bytes calldata _item,  string calldata _evidence) external payable {
-        bytes32 itemID = keccak256(_item);
-        require(items[itemID].status == Status.Registered, "Item must be registered to be removed.");
+    function removeItem(bytes32 _itemID,  string calldata _evidence) external payable {
+        require(items[_itemID].status == Status.Registered, "Item must be registered to be removed.");
+        Item storage item = items[_itemID];
 
         // Emit evidence if it was provided.
         if (bytes(_evidence).length > 0) {
-            Item storage item = items[itemID];
-
             // Using `length` instead of `length - 1` because a new request will be added on requestStatusChange().
             uint requestIndex = item.requests.length;
-            uint evidenceGroupID = uint(keccak256(abi.encodePacked(itemID, requestIndex)));
-            evidenceGroupIDToRequestID[evidenceGroupID] = RequestID(itemID, requestIndex);
+            uint evidenceGroupID = uint(keccak256(abi.encodePacked(_itemID, requestIndex)));
+            evidenceGroupIDToRequestID[evidenceGroupID] = RequestID(_itemID, requestIndex);
 
             emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
         }
 
-        requestStatusChange(_item, removalBaseDeposit);
+        requestStatusChange(item.data, removalBaseDeposit);
     }
 
     /** @dev Challenges the request of the item. Accepts enough ETH to cover the deposit, reimburses the rest.
@@ -632,7 +628,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         round.hasPaid[uint(Party.Requester)] = true;
 
         emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1, false, false);
-        emit RequestSubmitted(itemID, msg.sender, evidenceGroupID, item.status);
+        emit RequestSubmitted(itemID, item.requests.length - 1, item.status);
     }
 
     /** @dev Returns the contribution value and remainder from available ETH and required amount.
