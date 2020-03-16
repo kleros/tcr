@@ -946,7 +946,7 @@ contract('GTCR', function(accounts) {
     await gtcr.executeRequest(itemID, { from: governor })
 
     // 2th request.
-    await gtcr.removeItem('0xaabbaa', '', {
+    await gtcr.removeItem(itemID, '', {
       from: requester,
       value: removalTotalCost
     })
@@ -965,7 +965,7 @@ contract('GTCR', function(accounts) {
     assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
 
     // 3th request.
-    await gtcr.removeItem('0xaabbaa', '', {
+    await gtcr.removeItem(itemID, '', {
       from: requester,
       value: removalTotalCost
     })
