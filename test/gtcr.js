@@ -593,6 +593,7 @@ contract('GTCR', function(accounts) {
   })
 
   it('Should paid to all parties correctly and set correct values when arbitrator refused to rule', async () => {
+    const initialGTCRBalance = new BN(await web3.eth.getBalance(gtcr.address))
     await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
     const itemID = await gtcr.itemList(0)
 
@@ -618,6 +619,13 @@ contract('GTCR', function(accounts) {
     const newBalanceRequester = await web3.eth.getBalance(requester)
     const newBalanceChallenger = await web3.eth.getBalance(challenger)
 
+    const gtcrBalanceAfter = new BN(await web3.eth.getBalance(gtcr.address))
+
+    assert.equal(
+      initialGTCRBalance.toString(),
+      gtcrBalanceAfter.toString(),
+      'Contract should not have remaining ETH from this request.'
+    )
     assert(
       new BN(newBalanceRequester).eq(
         new BN(oldBalanceRequester).add(new BN(3150))
