@@ -592,18 +592,24 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it('Should paid to all parties correctly and set correct values when arbitrator refused to rule', async () => {
-    const initialGTCRBalance = new BN(await web3.eth.getBalance(gtcr.address))
+  it('Should pay all parties correctly and set correct values when arbitrator refused to rule', async () => {
+    const initialGTCRBalance = await web3.eth.getBalance(gtcr.address)
+    const oldBalanceRequester = await web3.eth.getBalance(requester)
+    const oldBalanceChallenger = await web3.eth.getBalance(challenger)
+
     await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
+    const requestGasCost = new BN(oldBalanceRequester)
+      .sub(new BN(await web3.eth.getBalance(requester)))
+      .sub(new BN(submitterTotalCost))
     const itemID = await gtcr.itemList(0)
 
     await gtcr.challengeRequest(itemID, 'aaa', {
       from: challenger,
       value: submissionChallengeTotalCost
     })
-
-    const oldBalanceRequester = await web3.eth.getBalance(requester)
-    const oldBalanceChallenger = await web3.eth.getBalance(challenger)
+    const challengeGasCost = new BN(oldBalanceChallenger)
+      .sub(new BN(await web3.eth.getBalance(challenger)))
+      .sub(new BN(submissionChallengeTotalCost))
 
     await arbitrator.giveRuling(1, 0)
     await time.increase(appealTimeOut + 1)
@@ -619,25 +625,34 @@ contract('GTCR', function(accounts) {
     const newBalanceRequester = await web3.eth.getBalance(requester)
     const newBalanceChallenger = await web3.eth.getBalance(challenger)
 
-    const gtcrBalanceAfter = new BN(await web3.eth.getBalance(gtcr.address))
-
+    // In the case that the arbitrator refused to rule and no one
+    // appealed, the reimbursements should look like this:
+    //
+    // The arbitration cost is split between the two parties 50% 50%
+    // Both parties should receive their deposits fully.
+    // There should be no ETH left in the GTCR contract.
     assert.equal(
-      initialGTCRBalance.toString(),
-      gtcrBalanceAfter.toString(),
-      'Contract should not have remaining ETH from this request.'
+      newBalanceRequester,
+      new BN(oldBalanceRequester)
+        .sub(new BN(arbitrationCost).div(new BN(2)))
+        .sub(requestGasCost)
+        .toString(),
+      'Requester should have only paid half of the arbitrarion fees.'
     )
-    assert(
-      new BN(newBalanceRequester).eq(
-        new BN(oldBalanceRequester).add(new BN(3150))
-      ), // The difference should be: 3500 * 9000 / 10000
-      'The requester was not reimbursed correctly'
+    assert.equal(
+      newBalanceChallenger,
+      new BN(oldBalanceChallenger)
+        .sub(new BN(arbitrationCost).div(new BN(2)))
+        .sub(challengeGasCost)
+        .toString(),
+      'Challengers should have only paid half of the arbitrarion fees.'
     )
 
-    assert(
-      new BN(newBalanceChallenger).eq(
-        new BN(oldBalanceChallenger).add(new BN(5850))
-      ), // The difference should be: 6500 * 9000 / 10000
-      'The challenger was not reimbursed correctly'
+    const gtcrBalanceAfter = await web3.eth.getBalance(gtcr.address)
+    assert.equal(
+      gtcrBalanceAfter,
+      initialGTCRBalance,
+      'Contract should not have remaining ETH from this request.'
     )
   })
 
