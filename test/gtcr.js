@@ -5,6 +5,12 @@ const { soliditySha3 } = require('web3-utils')
 const GTCR = artifacts.require('./GeneralizedTCR.sol')
 const Arbitrator = artifacts.require('EnhancedAppealableArbitrator')
 
+const PARTY = {
+  NONE: 0,
+  REQUESTER: 1,
+  CHALLENGER: 2
+}
+
 contract('GTCR', function(accounts) {
   const governor = accounts[0]
   const requester = accounts[1]
@@ -438,7 +444,7 @@ contract('GTCR', function(accounts) {
       value: submissionChallengeTotalCost
     })
 
-    await arbitrator.giveRuling(1, 2)
+    await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     // Appeal fee is the same as arbitration fee for this arbitrator.
     const loserAppealFee =
@@ -559,7 +565,7 @@ contract('GTCR', function(accounts) {
       value: submissionChallengeTotalCost
     })
 
-    await arbitrator.giveRuling(1, 2)
+    await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     const loserAppealFee =
       arbitrationCost +
@@ -580,7 +586,7 @@ contract('GTCR', function(accounts) {
       value: submissionChallengeTotalCost
     })
 
-    await arbitrator.giveRuling(1, 2)
+    await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     const winnerAppealFee =
       arbitrationCost +
@@ -611,9 +617,9 @@ contract('GTCR', function(accounts) {
       .sub(new BN(await web3.eth.getBalance(challenger)))
       .sub(new BN(submissionChallengeTotalCost))
 
-    await arbitrator.giveRuling(1, 0)
+    await arbitrator.giveRuling(1, PARTY.NONE)
     await time.increase(appealTimeOut + 1)
-    await arbitrator.giveRuling(1, 0)
+    await arbitrator.giveRuling(1, PARTY.NONE)
 
     const item = await gtcr.items(itemID)
     assert.equal(item[1].toNumber(), 0, 'Item should have status Absent')
@@ -668,9 +674,9 @@ contract('GTCR', function(accounts) {
     const oldBalanceRequester = await web3.eth.getBalance(requester)
     const oldBalanceChallenger = await web3.eth.getBalance(challenger)
 
-    await arbitrator.giveRuling(1, 1)
+    await arbitrator.giveRuling(1, PARTY.REQUESTER)
     await time.increase(appealTimeOut + 1)
-    await arbitrator.giveRuling(1, 1)
+    await arbitrator.giveRuling(1, PARTY.REQUESTER)
 
     const item = await gtcr.items(itemID)
     assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
@@ -710,9 +716,9 @@ contract('GTCR', function(accounts) {
     const oldBalanceRequester = await web3.eth.getBalance(requester)
     const oldBalanceChallenger = await web3.eth.getBalance(challenger)
 
-    await arbitrator.giveRuling(1, 2)
+    await arbitrator.giveRuling(1, PARTY.CHALLENGER)
     await time.increase(appealTimeOut + 1)
-    await arbitrator.giveRuling(1, 2)
+    await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     const item = await gtcr.items(itemID)
     assert.equal(item[1].toNumber(), 0, 'Item should have status Absent')
@@ -749,7 +755,7 @@ contract('GTCR', function(accounts) {
       value: submissionChallengeTotalCost
     })
 
-    await arbitrator.giveRuling(1, 2)
+    await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     const loserAppealFee =
       arbitrationCost +
@@ -765,7 +771,7 @@ contract('GTCR', function(accounts) {
     const oldBalanceChallenger = await web3.eth.getBalance(challenger)
 
     await time.increase(appealTimeOut + 1)
-    await arbitrator.giveRuling(1, 2)
+    await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     const item = await gtcr.items(itemID)
     assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
@@ -799,7 +805,7 @@ contract('GTCR', function(accounts) {
       value: submissionChallengeTotalCost
     })
 
-    await arbitrator.giveRuling(1, 1)
+    await arbitrator.giveRuling(1, PARTY.REQUESTER)
 
     // 1st appeal round.
     const loserAppealFee =
@@ -829,7 +835,7 @@ contract('GTCR', function(accounts) {
       value: winnerAppealFee * 0.8
     })
 
-    await arbitrator.giveRuling(2, 2) // Change the ruling to see that logic doesn't break.
+    await arbitrator.giveRuling(2, PARTY.CHALLENGER) // Change the ruling to see that logic doesn't break.
 
     // 2nd appeal round.
 
@@ -844,7 +850,7 @@ contract('GTCR', function(accounts) {
     }) // WinnerAppealFee should not be enough because requester is now loser.
 
     await time.increase(appealTimeOut + 1)
-    await arbitrator.giveRuling(2, 2)
+    await arbitrator.giveRuling(2, PARTY.CHALLENGER)
 
     const oldBalanceRequester = await web3.eth.getBalance(requester)
     await gtcr.withdrawFeesAndRewards(requester, itemID, 0, 1, {
@@ -899,7 +905,7 @@ contract('GTCR', function(accounts) {
       value: submissionChallengeTotalCost
     })
 
-    await arbitrator.giveRuling(1, 0)
+    await arbitrator.giveRuling(1, PARTY.NONE)
 
     // 1st appeal round.
     const sharedAppealFee =
@@ -918,9 +924,9 @@ contract('GTCR', function(accounts) {
     await gtcr.fundAppeal(itemID, 1, { from: other, value: sharedAppealFee })
     await gtcr.fundAppeal(itemID, 2, { from: other, value: sharedAppealFee })
 
-    await arbitrator.giveRuling(2, 0)
+    await arbitrator.giveRuling(2, PARTY.NONE)
     await time.increase(appealTimeOut + 1)
-    await arbitrator.giveRuling(2, 0)
+    await arbitrator.giveRuling(2, PARTY.NONE)
 
     const oldBalanceRequester = await web3.eth.getBalance(requester)
     await gtcr.withdrawFeesAndRewards(requester, itemID, 0, 1, {
@@ -979,10 +985,10 @@ contract('GTCR', function(accounts) {
       value: removalChallengeTotalCost
     })
 
-    await arbitrator.giveRuling(1, 2)
+    await arbitrator.giveRuling(1, PARTY.CHALLENGER)
     await gtcr.fundAppeal(itemID, 2, { from: challenger, value: 1 }) // Just check that appeal works, the value is irrelevant.
     await time.increase(appealTimeOut + 1)
-    await arbitrator.giveRuling(1, 2)
+    await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     item = await gtcr.getItemInfo(itemID)
     assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
