@@ -295,7 +295,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         uint challengerBaseDeposit = item.status == Status.RegistrationRequested
             ? submissionChallengeBaseDeposit
             : removalChallengeBaseDeposit;
-        uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(challengerBaseDeposit);
+        uint totalCost = arbitrationCost.addCap(challengerBaseDeposit);
         contribute(round, Party.Challenger, msg.sender, msg.value, totalCost);
         require(round.paidFees[uint(Party.Challenger)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Challenger)] = true;
@@ -622,7 +622,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Round storage round = request.rounds[request.rounds.length++];
 
         uint arbitrationCost = request.arbitrator.arbitrationCost(request.arbitratorExtraData);
-        uint totalCost = arbitrationCost.addCap((arbitrationCost.mulCap(sharedStakeMultiplier)) / MULTIPLIER_DIVISOR).addCap(_baseDeposit);
+        uint totalCost = arbitrationCost.addCap(_baseDeposit);
         contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
         require(round.paidFees[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Requester)] = true;
