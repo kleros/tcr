@@ -70,11 +70,12 @@ contract('GTCR', function(accounts) {
     MULTIPLIER_DIVISOR = (await gtcr.MULTIPLIER_DIVISOR()).toNumber()
     submitterTotalCost = arbitrationCost + submissionBaseDeposit
     removalTotalCost = arbitrationCost + removalBaseDeposit
-    submissionChallengeTotalCost = arbitrationCost + submissionChallengeBaseDeposit
+    submissionChallengeTotalCost =
+      arbitrationCost + submissionChallengeBaseDeposit
     removalChallengeTotalCost = arbitrationCost + removalChallengeBaseDeposit
   })
 
-  it.skip('Should set the correct values in constructor', async () => {
+  it('Should set the correct values in constructor', async () => {
     assert.equal(await gtcr.arbitrator(), arbitrator.address)
     assert.equal(await gtcr.arbitratorExtraData(), arbitratorExtraData)
     assert.equal(await gtcr.governor(), governor)
@@ -89,7 +90,7 @@ contract('GTCR', function(accounts) {
     assert.equal(await gtcr.loserStakeMultiplier(), loserStakeMultiplier)
   })
 
-  it.skip('Should set the correct values and fire the event when requesting registration', async () => {
+  it('Should set the correct values and fire the event when requesting registration', async () => {
     await expectRevert(
       gtcr.addItem(
         '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
@@ -200,7 +201,7 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should set the correct values and create a dispute after the item is challenged and fire 2 events', async () => {
+  it('Should set the correct values and create a dispute after the item is challenged and fire 2 events', async () => {
     await gtcr.addItem(
       '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
       { from: requester, value: submitterTotalCost }
@@ -341,7 +342,7 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should not be possibe to challenge after timeout', async () => {
+  it('Should not be possibe to challenge after timeout', async () => {
     await gtcr.addItem('0xaabbaa', {
       from: requester,
       value: submitterTotalCost
@@ -359,7 +360,7 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should successfully execute the request if it has not been challenged and fire the event', async () => {
+  it('Should successfully execute the request if it has not been challenged and fire the event', async () => {
     await gtcr.addItem(
       '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
       { from: requester, value: submitterTotalCost }
@@ -416,7 +417,7 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should demand correct appeal fees and register that appeal fee has been paid', async () => {
+  it('Should demand correct appeal fees and register that appeal fee has been paid', async () => {
     let roundInfo
     await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
     const itemID = await gtcr.itemList(0)
@@ -542,7 +543,7 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should not be possible for loser to fund appeal if first half of appeal period has passed', async () => {
+  it('Should not be possible for loser to fund appeal if first half of appeal period has passed', async () => {
     await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
     const itemID = await gtcr.itemList(0)
 
@@ -563,7 +564,7 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should not be possible for winner to fund appeal if appeal period has passed', async () => {
+  it('Should not be possible for winner to fund appeal if appeal period has passed', async () => {
     await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
     const itemID = await gtcr.itemList(0)
 
@@ -590,18 +591,35 @@ contract('GTCR', function(accounts) {
     const oldBalanceChallenger = await web3.eth.getBalance(challenger)
 
     await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
-    const requesterBalanceBeforWithdr = await web3.eth.getBalance(requester)
     const itemID = await gtcr.itemList(0)
     const addTxCost = new BN(oldBalanceRequester)
       .sub(new BN(await web3.eth.getBalance(requester)))
       .sub(new BN(submitterTotalCost))
 
-    await gtcr.challengeRequest(
-      itemID,
-      'aaa',
-      { from: challenger,value: submissionChallengeTotalCost }
+    assert.equal(
+      (await web3.eth.getBalance(gtcr.address)).toString(),
+      (arbitrationCost + submissionBaseDeposit).toString(),
+      'Incorrect contract balance.'
     )
-    const challengerBalanceBeforWithdr = await web3.eth.getBalance(challenger)
+
+    await gtcr.challengeRequest(itemID, 'aaa', {
+      from: challenger,
+      value: submissionChallengeTotalCost
+    })
+
+    const challengeTxCost = new BN(oldBalanceChallenger)
+      .sub(new BN(await web3.eth.getBalance(challenger)))
+      .sub(new BN(submissionChallengeTotalCost))
+
+    assert.equal(
+      (await web3.eth.getBalance(gtcr.address)).toString(),
+      (
+        arbitrationCost +
+        submissionBaseDeposit +
+        submissionChallengeBaseDeposit
+      ).toString(),
+      'Incorrect contract balance.'
+    )
 
     await arbitrator.giveRuling(1, PARTY.NONE)
     await time.increase(appealTimeOut + 1)
@@ -612,14 +630,14 @@ contract('GTCR', function(accounts) {
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'The request should be resolved')
-    assert.equal(request[6].toNumber(), PARTY.NONE, 'Request has incorrect ruling')
+    assert.equal(
+      request[6].toNumber(),
+      PARTY.NONE,
+      'Request has incorrect ruling'
+    )
 
     const newBalanceRequester = await web3.eth.getBalance(requester)
     const newBalanceChallenger = await web3.eth.getBalance(challenger)
-
-    const challengeTxCost = new BN(oldBalanceChallenger)
-      .sub(new BN(await web3.eth.getBalance(challenger)))
-      .sub(new BN(submissionChallengeTotalCost))
 
     // In the case that the arbitrator refused to rule and no one
     // appealed, the reimbursements should look like this:
@@ -629,12 +647,18 @@ contract('GTCR', function(accounts) {
     // There should be no ETH left in the GTCR contract.
     assert.equal(
       new BN(oldBalanceRequester).sub(new BN(newBalanceRequester)).toString(),
-      new BN(arbitrationCost).div(new BN(2)).add(addTxCost).toString(),
+      new BN(arbitrationCost)
+        .div(new BN(2))
+        .add(addTxCost)
+        .toString(),
       'Requester should have only paid half of the arbitrarion fees.'
     )
     assert.equal(
       new BN(oldBalanceChallenger).sub(new BN(newBalanceChallenger)).toString(),
-      new BN(arbitrationCost).div(new BN(2)).add(challengeTxCost).toString(),
+      new BN(arbitrationCost)
+        .div(new BN(2))
+        .add(challengeTxCost)
+        .toString(),
       'Challengers should have only paid half of the arbitrarion fees.'
     )
 
@@ -646,16 +670,19 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should paid to all parties correctly and set correct values when requester wins', async () => {
+  it('Should paid to all parties correctly and set correct values when requester wins', async () => {
+    const initialRequesterBalance = await web3.eth.getBalance(requester)
     await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
     const itemID = await gtcr.itemList(0)
+    const addTxCost = new BN(initialRequesterBalance)
+      .sub(new BN(await web3.eth.getBalance(requester)))
+      .sub(new BN(submitterTotalCost))
 
     await gtcr.challengeRequest(itemID, 'aaa', {
       from: challenger,
       value: submissionChallengeTotalCost
     })
 
-    const oldBalanceRequester = await web3.eth.getBalance(requester)
     const oldBalanceChallenger = await web3.eth.getBalance(challenger)
 
     await arbitrator.giveRuling(1, PARTY.REQUESTER)
@@ -672,11 +699,14 @@ contract('GTCR', function(accounts) {
     const newBalanceRequester = await web3.eth.getBalance(requester)
     const newBalanceChallenger = await web3.eth.getBalance(challenger)
 
-    assert(
-      new BN(newBalanceRequester).eq(
-        new BN(oldBalanceRequester).add(new BN(9000))
-      ), // Requester should be paid the whole feeRewards pot (9000)
-      'The requester was not reimbursed correctly'
+    // Requester should be paid the whole feeRewards pot.
+    assert.equal(
+      newBalanceRequester,
+      new BN(initialRequesterBalance)
+        .sub(new BN(addTxCost))
+        .add(new BN(submissionChallengeBaseDeposit))
+        .toString(),
+      'The requester was not reimbursed and awarded correctly'
     )
 
     assert(
@@ -685,20 +715,23 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should paid to all parties correctly and set correct values when challenger wins', async () => {
+  it('Should paid to all parties correctly and set correct values when challenger wins', async () => {
     await gtcr.addItem('0x1111224411', {
       from: requester,
       value: submitterTotalCost
     })
     const itemID = await gtcr.itemList(0)
 
+    const initialChallengerBalance = await web3.eth.getBalance(challenger)
     await gtcr.challengeRequest(itemID, 'testEvidence11', {
       from: challenger,
       value: submissionChallengeTotalCost
     })
+    const challengeTxCost = new BN(initialChallengerBalance)
+      .sub(new BN(await web3.eth.getBalance(challenger)))
+      .sub(new BN(submissionChallengeTotalCost))
 
     const oldBalanceRequester = await web3.eth.getBalance(requester)
-    const oldBalanceChallenger = await web3.eth.getBalance(challenger)
 
     await arbitrator.giveRuling(1, PARTY.CHALLENGER)
     await time.increase(appealTimeOut + 1)
@@ -719,20 +752,27 @@ contract('GTCR', function(accounts) {
       'The balance of the requester should stay the same'
     )
 
-    assert(
-      new BN(newBalanceChallenger).eq(
-        new BN(oldBalanceChallenger).add(new BN(9000))
-      ), // Challenger should be paid the whole feeRewards pot (9000)
-      'The challenger was not reimbursed correctly'
+    // Challenger should be paid the whole feeRewards pot (9000)
+    assert.equal(
+      newBalanceChallenger,
+      new BN(initialChallengerBalance)
+        .sub(new BN(challengeTxCost))
+        .add(new BN(submissionBaseDeposit))
+        .toString(),
+      'The challenger was not reimbursed and awarded correctly'
     )
   })
 
-  it.skip('Should change the ruling if the loser paid appeal fee while winner did not', async () => {
+  it('Should change the ruling if the loser paid appeal fee while winner did not', async () => {
+    const initialRequesterBalance = await web3.eth.getBalance(requester)
     await gtcr.addItem(
       '0x1111224411ffaa2eaf1111224411ffaa2eaf1111224411ffaa2eaf',
       { from: requester, value: submitterTotalCost }
     )
     const itemID = await gtcr.itemList(0)
+    const addTxCost = new BN(initialRequesterBalance)
+      .sub(new BN(await web3.eth.getBalance(requester)))
+      .sub(new BN(submitterTotalCost))
 
     await gtcr.challengeRequest(itemID, 'E', {
       from: challenger,
@@ -745,13 +785,18 @@ contract('GTCR', function(accounts) {
       arbitrationCost +
       (arbitrationCost * loserStakeMultiplier) / MULTIPLIER_DIVISOR
 
+    const requesterBalBeforeAppeal = await web3.eth.getBalance(requester)
     // Invert the ruling so the requester should win
+
     await gtcr.fundAppeal(itemID, 1, {
       from: requester,
-      value: loserAppealFee * 2
+      value: loserAppealFee
     })
 
-    const oldBalanceRequester = await web3.eth.getBalance(requester)
+    const fundAppealTxCost = new BN(requesterBalBeforeAppeal)
+      .sub(new BN(await web3.eth.getBalance(requester)))
+      .sub(new BN(loserAppealFee))
+
     const oldBalanceChallenger = await web3.eth.getBalance(challenger)
 
     await time.increase(appealTimeOut + 1)
@@ -767,11 +812,15 @@ contract('GTCR', function(accounts) {
     const newBalanceRequester = await web3.eth.getBalance(requester)
     const newBalanceChallenger = await web3.eth.getBalance(challenger)
 
-    assert(
-      new BN(newBalanceRequester).eq(
-        new BN(oldBalanceRequester).add(new BN(9000))
-      ),
-      'The requester was not reimbursed correctly'
+    assert.equal(
+      newBalanceRequester,
+      new BN(initialRequesterBalance)
+        .sub(new BN(addTxCost))
+        .sub(new BN(fundAppealTxCost))
+        .add(new BN(submissionChallengeBaseDeposit))
+        .sub(new BN(loserAppealFee)) // The appeal fees paid in the last round must be withdrawn in another tx.
+        .toString(),
+      'The requester was not reimbursed and awarded correctly'
     )
 
     assert(
@@ -780,7 +829,7 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should withdraw correct fees if dispute had winner/loser', async () => {
+  it('Should withdraw correct fees if dispute had winner/loser', async () => {
     await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
     const itemID = await gtcr.itemList(0)
 
@@ -880,7 +929,7 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should withdraw correct fees if arbitrator refused to arbitrate', async () => {
+  it('Should withdraw correct fees if arbitrator refused to arbitrate', async () => {
     await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
     const itemID = await gtcr.itemList(0)
 
@@ -948,7 +997,7 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Check various cases of status requirements and the removing request', async () => {
+  it('Check various cases of status requirements and the removing request', async () => {
     // 1st request.
     await gtcr.addItem('0xaabbaa', {
       from: requester,
@@ -998,7 +1047,7 @@ contract('GTCR', function(accounts) {
     assert.equal(count.toNumber(), 2, 'The total number of items is incorrect')
   })
 
-  it.skip('Only the governor should be allowed to change state variables', async () => {
+  it('Only the governor should be allowed to change state variables', async () => {
     await expectRevert(
       gtcr.changeTimeToChallenge(11, { from: other }),
       'The caller must be the governor.'
@@ -1141,7 +1190,7 @@ contract('GTCR', function(accounts) {
     )
   })
 
-  it.skip('Should not be possibe to submit evidence to resolved dispute', async () => {
+  it('Should not be possibe to submit evidence to resolved dispute', async () => {
     await gtcr.addItem('0xaabbaa', {
       from: requester,
       value: submitterTotalCost
