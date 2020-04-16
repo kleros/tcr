@@ -65,7 +65,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     }
 
     struct Round {
-        uint[3] amountPaid; // Tracks the sum for each Party in this round. Includes arbitration fees, fee stakes and deposits.
+        uint[3] amountPaid; // Tracks the sum paid for each Party in this round. Includes arbitration fees, fee stakes and deposits.
         bool[3] hasPaid; // True if the Party has fully paid its fee in this round.
         uint feeRewards; // Sum of reimbursable fees and stake rewards available to the parties that made contributions to the side that ultimately wins a dispute.
         mapping(address => uint[3]) contributions; // Maps contributors to their contributions for each side.
@@ -366,7 +366,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         uint appealCost = request.arbitrator.appealCost(request.disputeID, request.arbitratorExtraData);
         uint totalCost = appealCost.addCap((appealCost.mulCap(multiplier)) / MULTIPLIER_DIVISOR);
         uint contribution = contribute(round, _side, msg.sender, msg.value, totalCost);
-        round.paidArbitrationFees[uint(_side)] += appealCost;
 
         emit AppealContribution(
             _itemID,
@@ -415,8 +414,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
                 _beneficiary != request.parties[uint(Party.Challenger)]
             ) return;
 
-            uint side = _beneficiary == request.parties[uint(Party.Requester)] ? 1 : 2;
-            if (round.contributions[_beneficiary][side] == 0) return;
+            Party side = _beneficiary == request.parties[uint(Party.Requester)] ? Party.Requester : Party.Challenger;
 
             // The first round is special since it does not include crowdfunding fees,
             // or stake multipliers. The only participants are the requester and challenger.
@@ -424,8 +422,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             // Arbitration costs can rise or fall between when a request was made and when it was
             // challenged. To keep things fair, we reimburse proportionally to the amount
             // contributed.
-            reward = round.contributions[_beneficiary][side].subCap(round.paidArbitrationFees[side]); // Base deposit.
-            uint arbitrationFeesSide = round.paidArbitrationFees[side];
+            reward = round.contributions[_beneficiary][uint(side)].subCap(round.paidArbitrationFees[uint(side)]); // Base deposit.
+            uint arbitrationFeesSide = round.paidArbitrationFees[uint(side)];
             uint totalArbitrationFeesPaid = round.paidArbitrationFees[uint(Party.Requester)] + round.paidArbitrationFees[uint(Party.Requester)];
 
             // Reimbursable fees are total amount paid minus the amount paid by the challenger
