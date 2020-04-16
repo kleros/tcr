@@ -840,7 +840,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             bool appealed,
             uint[3] memory amountPaid,
             bool[3] memory hasPaid,
-            uint feeRewards
+            uint feeRewards,
+            uint[3] memory paidArbitrationFees
         )
     {
         Item storage item = items[_itemID];
@@ -850,7 +851,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             _round != (request.rounds.length - 1),
             round.amountPaid,
             round.hasPaid,
-            round.feeRewards
+            round.feeRewards,
+            round.paidArbitrationFees
         );
     }
 }
