@@ -46,7 +46,7 @@ contract GeneralizedTCRView {
         bool[3] hasPaid;
         uint feeRewards;
         uint submissionTime;
-        uint[3] paidFees;
+        uint[3] amountPaid;
         IArbitrator.DisputeStatus disputeStatus;
         uint numberOfRequests;
     }
@@ -117,7 +117,7 @@ contract GeneralizedTCRView {
             hasPaid: round.hasPaid,
             feeRewards: round.feeRewards,
             submissionTime: round.request.submissionTime,
-            paidFees: round.paidFees,
+            amountPaid: round.amountPaid,
             disputeStatus: IArbitrator.DisputeStatus.Waiting,
             numberOfRequests: round.request.item.numberOfRequests
         });
@@ -452,9 +452,9 @@ contract GeneralizedTCRView {
             for (indexes[1]; indexes[1] < requestRoundCount[1]; indexes[1]++) {
                 (
                     ,
-                    uint[3] memory paidFees,
+                    uint[3] memory amountPaid,
                     bool[3] memory hasPaid,
-                    uint feeRewards
+                    uint feeRewards,
                 ) = gtcr.getRoundInfo(_itemID, indexes[0], indexes[1]);
 
                 uint[3] memory roundContributions = gtcr.getContributions(_itemID, indexes[0], indexes[1], _contributor);
@@ -463,16 +463,16 @@ contract GeneralizedTCRView {
                     rewards += roundContributions[uint(GeneralizedTCR.Party.Requester)] + roundContributions[uint(GeneralizedTCR.Party.Challenger)];
                 } else if (ruling == GeneralizedTCR.Party.None) {
                     // Reimbursable fees proportional if there aren't a winner and loser.
-                    rewards += paidFees[uint(GeneralizedTCR.Party.Requester)] > 0
-                        ? (roundContributions[uint(GeneralizedTCR.Party.Requester)] * feeRewards) / (paidFees[uint(GeneralizedTCR.Party.Challenger)] + paidFees[uint(GeneralizedTCR.Party.Requester)])
+                    rewards += amountPaid[uint(GeneralizedTCR.Party.Requester)] > 0
+                        ? (roundContributions[uint(GeneralizedTCR.Party.Requester)] * feeRewards) / (amountPaid[uint(GeneralizedTCR.Party.Challenger)] + amountPaid[uint(GeneralizedTCR.Party.Requester)])
                         : 0;
-                    rewards += paidFees[uint(GeneralizedTCR.Party.Challenger)] > 0
-                        ? (roundContributions[uint(GeneralizedTCR.Party.Challenger)] * feeRewards) / (paidFees[uint(GeneralizedTCR.Party.Challenger)] + paidFees[uint(GeneralizedTCR.Party.Requester)])
+                    rewards += amountPaid[uint(GeneralizedTCR.Party.Challenger)] > 0
+                        ? (roundContributions[uint(GeneralizedTCR.Party.Challenger)] * feeRewards) / (amountPaid[uint(GeneralizedTCR.Party.Challenger)] + amountPaid[uint(GeneralizedTCR.Party.Requester)])
                         : 0;
                 } else {
                     // Contributors to the winner take the rewards.
-                    rewards += paidFees[uint(ruling)] > 0
-                        ? (roundContributions[uint(ruling)] * feeRewards) / paidFees[uint(ruling)]
+                    rewards += amountPaid[uint(ruling)] > 0
+                        ? (roundContributions[uint(ruling)] * feeRewards) / amountPaid[uint(ruling)]
                         : 0;
                 }
             }
@@ -504,7 +504,7 @@ contract GeneralizedTCRView {
     struct RoundData {
         RequestData request;
         bool appealed;
-        uint[3] paidFees;
+        uint[3] amountPaid;
         bool[3] hasPaid;
         uint feeRewards;
     }
@@ -567,14 +567,14 @@ contract GeneralizedTCRView {
         RequestData memory request = getLatestRequestData(_address, _itemID);
         (
             bool appealed,
-            uint[3] memory paidFees,
+            uint[3] memory amountPaid,
             bool[3] memory hasPaid,
-            uint feeRewards
+            uint feeRewards,
         ) = gtcr.getRoundInfo(_itemID, request.item.numberOfRequests - 1, request.numberOfRounds - 1);
         round = RoundData(
             request,
             appealed,
-            paidFees,
+            amountPaid,
             hasPaid,
             feeRewards
         );
