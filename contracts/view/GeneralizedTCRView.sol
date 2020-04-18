@@ -454,7 +454,7 @@ contract GeneralizedTCRView {
                     ,
                     uint[3] memory amountPaid,
                     bool[3] memory hasPaid,
-                    uint feeRewards,
+                    uint feeRewards
                 ) = gtcr.getRoundInfo(_itemID, indexes[0], indexes[1]);
 
                 uint[3] memory roundContributions = gtcr.getContributions(_itemID, indexes[0], indexes[1], _contributor);
@@ -569,7 +569,7 @@ contract GeneralizedTCRView {
             bool appealed,
             uint[3] memory amountPaid,
             bool[3] memory hasPaid,
-            uint feeRewards,
+            uint feeRewards
         ) = gtcr.getRoundInfo(_itemID, request.item.numberOfRequests - 1, request.numberOfRounds - 1);
         round = RoundData(
             request,

@@ -639,32 +639,40 @@ contract('GTCR', function(accounts) {
     const newBalanceRequester = await web3.eth.getBalance(requester)
     const newBalanceChallenger = await web3.eth.getBalance(challenger)
 
-    // In the case that the arbitrator refused to rule and no one
-    // appealed, the reimbursements should look like this:
-    //
-    // The arbitration cost is split between the two parties 50% 50%
-    // Both parties should receive their deposits fully.
-    // There should be no ETH left in the GTCR contract.
+    const submitterExpectedPay = new BN(submitterTotalCost)
+      .mul(new BN(MULTIPLIER_DIVISOR))
+      .div(new BN(submissionChallengeTotalCost).add(new BN(submitterTotalCost)))
+      .mul(new BN(arbitrationCost))
+      .div(new BN(MULTIPLIER_DIVISOR))
+
+    const challengerExpectedPay = new BN(submissionChallengeTotalCost)
+      .mul(new BN(MULTIPLIER_DIVISOR))
+      .div(new BN(submissionChallengeTotalCost).add(new BN(submitterTotalCost)))
+      .mul(new BN(arbitrationCost))
+      .div(new BN(MULTIPLIER_DIVISOR))
+
     assert.equal(
-      new BN(oldBalanceRequester).sub(new BN(newBalanceRequester)).toString(),
-      new BN(arbitrationCost)
-        .div(new BN(2))
-        .add(addTxCost)
+      new BN(oldBalanceRequester)
+        .sub(new BN(newBalanceRequester))
+        .sub(addTxCost)
+        .sub(new BN('1')) // Account for rounding error
         .toString(),
-      'Requester should have only paid half of the arbitrarion fees.'
+      submitterExpectedPay.toString(),
+      'Requester did not pay the expected share of arbitration fees.'
     )
     assert.equal(
-      new BN(oldBalanceChallenger).sub(new BN(newBalanceChallenger)).toString(),
-      new BN(arbitrationCost)
-        .div(new BN(2))
-        .add(challengeTxCost)
+      new BN(oldBalanceChallenger)
+        .sub(new BN(newBalanceChallenger))
+        .sub(challengeTxCost)
+        .sub(new BN('1')) // Account for rounding error
         .toString(),
-      'Challengers should have only paid half of the arbitrarion fees.'
+      challengerExpectedPay.toString(),
+      'Challengers did not pay the expected share of arbitration fees.'
     )
 
     const gtcrBalanceAfter = await web3.eth.getBalance(gtcr.address)
     assert.equal(
-      gtcrBalanceAfter,
+      (gtcrBalanceAfter - 1).toString(), // Subtract 1 wei to account for rounding error.
       initialGTCRBalance,
       'Contract should not have remaining ETH from this request.'
     )
