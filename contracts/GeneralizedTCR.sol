@@ -300,7 +300,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         contribute(round, Party.Challenger, msg.sender, msg.value, totalCost);
         require(round.amountPaid[uint(Party.Challenger)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Challenger)] = true;
-        round.paidArbitrationFees[uint(Party.Challenger)] = arbitrationCost;
 
         // Raise a dispute.
         request.disputeID = request.arbitrator.createDispute.value(arbitrationCost)(RULING_OPTIONS, request.arbitratorExtraData);
@@ -405,33 +404,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         if (!round.hasPaid[uint(Party.Requester)] || !round.hasPaid[uint(Party.Challenger)]) {
             // Reimburse if not enough fees were raised to appeal the ruling.
             reward = round.contributions[_beneficiary][uint(Party.Requester)] + round.contributions[_beneficiary][uint(Party.Challenger)];
-        } else if (
-            request.ruling == Party.None &&
-            _round == 0
-        ) {
-            if (
-                _beneficiary != request.parties[uint(Party.Requester)] &&
-                _beneficiary != request.parties[uint(Party.Challenger)]
-            ) return;
-
-            Party side = _beneficiary == request.parties[uint(Party.Requester)] ? Party.Requester : Party.Challenger;
-
-            // The first round is special since it does not include crowdfunding fees,
-            // or stake multipliers. The only participants are the requester and challenger.
-            //
-            // Arbitration costs can rise or fall between when a request was made and when it was
-            // challenged. To keep things fair, we reimburse proportionally to the amount
-            // contributed.
-            reward = round.contributions[_beneficiary][uint(side)].subCap(round.paidArbitrationFees[uint(side)]); // Base deposit.
-            uint arbitrationFeesSide = round.paidArbitrationFees[uint(side)];
-            uint totalArbitrationFeesPaid = round.paidArbitrationFees[uint(Party.Requester)] + round.paidArbitrationFees[uint(Party.Requester)];
-
-            // Reimbursable fees are total amount paid minus the amount paid by the challenger
-            // because the amount paid by the challenger is the actual cost of the round.
-            uint reimbursableFeesAvailable = totalArbitrationFeesPaid - round.paidArbitrationFees[uint(Party.Challenger)];
-
-            reward += arbitrationFeesSide * reimbursableFeesAvailable / totalArbitrationFeesPaid;
-
         } else if (request.ruling == Party.None) {
             // Reimburse unspent fees proportionally if there is no winner or loser.
             uint rewardRequester = round.amountPaid[uint(Party.Requester)] > 0
@@ -655,7 +627,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         contribute(round, Party.Requester, msg.sender, msg.value, totalCost);
         require(round.amountPaid[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Requester)] = true;
-        round.paidArbitrationFees[uint(Party.Requester)] = arbitrationCost;
 
         emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1, false, false);
         emit RequestSubmitted(itemID, item.requests.length - 1, item.status);
@@ -840,8 +811,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             bool appealed,
             uint[3] memory amountPaid,
             bool[3] memory hasPaid,
-            uint feeRewards,
-            uint[3] memory paidArbitrationFees
+            uint feeRewards
         )
     {
         Item storage item = items[_itemID];
@@ -851,8 +821,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             _round != (request.rounds.length - 1),
             round.amountPaid,
             round.hasPaid,
-            round.feeRewards,
-            round.paidArbitrationFees
+            round.feeRewards
         );
     }
 }
