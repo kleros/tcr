@@ -69,7 +69,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         bool[3] hasPaid; // True if the Party has fully paid its fee in this round.
         uint feeRewards; // Sum of reimbursable fees and stake rewards available to the parties that made contributions to the side that ultimately wins a dispute.
         mapping(address => uint[3]) contributions; // Maps contributors to their contributions for each side.
-        uint[3] paidArbitrationFees; // The arbitration or appeal fees paid for each party.
     }
 
     struct RequestID {
