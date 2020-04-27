@@ -4,7 +4,17 @@ All notable changes to this project will be documented in this file. See [standa
 
 ### [1.7.1](https://github.com/kleros/tcr/compare/v1.7.0...v1.7.1) (2020-04-03)
 
-## [1.7.0](https://github.com/kleros/tcr/compare/v1.5.1...v1.7.0) (2020-04-03)
+## [1.7.0](https://github.com/kleros/tcr/compare/v1.5.1...v1.7.0) (2020-04-27)
+
+### Bug Fixes
+
+- add missing field in round getter and update view contract ([bf877e5](https://github.com/kleros/tcr/commit/bf877e5))
+- don't require fee stake in the first round ([7eabae7](https://github.com/kleros/tcr/commit/7eabae7))
+- reduce complexity on withdrawFeesAndRewards ([1d5fba1](https://github.com/kleros/tcr/commit/1d5fba1))
+- reimbursement and fee withdrawal ([ca27499](https://github.com/kleros/tcr/commit/ca27499))
+- remove unused struct field ([b869987](https://github.com/kleros/tcr/commit/b869987))
+- typo, bug and useless condition ([f4d60e5](https://github.com/kleros/tcr/commit/f4d60e5))
+
 
 ### Features
 
