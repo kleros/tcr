@@ -6,7 +6,7 @@
  *  @deployments: []
  */
 
-pragma solidity ^0.5.15;
+pragma solidity ^0.5.16;
 
 import { GeneralizedTCR } from "./GeneralizedTCR.sol";
 
