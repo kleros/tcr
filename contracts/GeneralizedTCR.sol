@@ -201,7 +201,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _removalChallengeBaseDeposit The base deposit to challenge a removal request.
      *  @param _challengePeriodDuration The time in seconds parties have to challenge a request.
      *  @param _stakeMultipliers Multipliers of the arbitration cost in basis points (see MULTIPLIER_DIVISOR) as follows:
-     *  - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate).
+     *  - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round (e.g. when the arbitrator refused to arbitrate).
      *  - The multiplier applied to the winner's fee stake for the subsequent round.
      *  - The multiplier applied to the loser's fee stake for the subsequent round.
      */
@@ -326,7 +326,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _side The recipient of the contribution.
      */
     function fundAppeal(bytes32 _itemID, Party _side) external payable {
-        require(_side == Party.Requester || _side == Party.Challenger, "Invalid party.");
+        require(_side == Party.Requester || _side == Party.Challenger, "Invalid side.");
         require(
             items[_itemID].status == Status.RegistrationRequested || items[_itemID].status == Status.ClearingRequested,
             "The item must have a pending request."
