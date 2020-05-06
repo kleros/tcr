@@ -101,7 +101,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     mapping(bytes32 => Item) public items; // Maps the item ID to its data. items[_itemID].
     mapping(address => mapping(uint => bytes32)) public arbitratorDisputeIDToItem;  // Maps a dispute ID to the ID of the item with the disputed request. arbitratorDisputeIDToItem[arbitrator][disputeID].
     mapping(bytes32 => uint) public itemIDtoIndex; // Maps an item's ID to its position in the list.
-    mapping(uint => RequestID) public evidenceGroupIDToRequestID; // Maps the evidenceGroupID to a requestID. This is useful to quickly find an item and request from an Evidence event.
 
      /* Modifiers */
 
@@ -149,6 +148,18 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
       bytes32 indexed _itemID,
       uint indexed _requestIndex,
       Status indexed _requestType
+    );
+
+    /**
+     *  @dev Emitted when someone submits a request. This is useful to quickly find an item and request from an evidence event and vice-versa.
+     *  @param _itemID The ID of the affected item.
+     *  @param _requestIndex The index of the latest request.
+     *  @param _evidenceGroupID The evidence group ID used for this request.
+     */
+    event RequestEvidenceGroupID(
+      bytes32 indexed _itemID,
+      uint indexed _requestIndex,
+      uint indexed _evidenceGroupID
     );
 
     /**
@@ -264,7 +275,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             // Using `length` instead of `length - 1` because a new request will be added on requestStatusChange().
             uint requestIndex = item.requests.length;
             uint evidenceGroupID = uint(keccak256(abi.encodePacked(_itemID, requestIndex)));
-            evidenceGroupIDToRequestID[evidenceGroupID] = RequestID(_itemID, requestIndex);
 
             emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
         }
@@ -316,7 +326,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         );
 
         if (bytes(_evidence).length > 0) {
-            evidenceGroupIDToRequestID[evidenceGroupID] = RequestID(_itemID, item.requests.length - 1);
             emit Evidence(request.arbitrator, evidenceGroupID, msg.sender, _evidence);
         }
     }
@@ -487,7 +496,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         require(!request.resolved, "The dispute must not already be resolved.");
 
         uint evidenceGroupID = uint(keccak256(abi.encodePacked(_itemID, item.requests.length - 1)));
-        evidenceGroupIDToRequestID[evidenceGroupID] = RequestID(_itemID, item.requests.length - 1);
         emit Evidence(request.arbitrator, evidenceGroupID, msg.sender, _evidence);
     }
 
@@ -629,6 +637,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
         emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1, false, false);
         emit RequestSubmitted(itemID, item.requests.length - 1, item.status);
+        emit RequestEvidenceGroupID(itemID, item.requests.length - 1, evidenceGroupID);
     }
 
     /** @dev Returns the contribution value and remainder from available ETH and required amount.
