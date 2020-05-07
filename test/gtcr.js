@@ -149,11 +149,6 @@ contract('GTCR', function(accounts) {
       arbitratorExtraData,
       'Request extra data has not been set up properly'
     )
-    assert.equal(
-      request[9].toNumber(),
-      2,
-      'Request type has not been set up properly'
-    )
 
     const round = await gtcr.getRoundInfo(itemID, 0, 0)
     assert.equal(

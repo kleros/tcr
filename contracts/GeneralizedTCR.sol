@@ -60,7 +60,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Party ruling; // The final ruling given, if any.
         IArbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
-        Status requestType; // The intent of the request. Used to keep a history of the requests.
         uint metaEvidenceID; // The meta evidence to be used in a dispute for this case.
     }
 
@@ -69,11 +68,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         bool[3] hasPaid; // True if the Party has fully paid its fee in this round.
         uint feeRewards; // Sum of reimbursable fees and stake rewards available to the parties that made contributions to the side that ultimately wins a dispute.
         mapping(address => uint[3]) contributions; // Maps contributors to their contributions for each side.
-    }
-
-    struct RequestID {
-        bytes32 itemID; // The keccak256 hash of the item's data.
-        uint requestIndex; // The request number, starting at zero.
     }
 
     /* Storage */
@@ -625,7 +619,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         request.submissionTime = now;
         request.arbitrator = arbitrator;
         request.arbitratorExtraData = arbitratorExtraData;
-        request.requestType = item.status;
 
         Round storage round = request.rounds[request.rounds.length++];
 
@@ -786,7 +779,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             Party ruling,
             IArbitrator arbitrator,
             bytes memory arbitratorExtraData,
-            Status requestType,
             uint metaEvidenceID
         )
     {
@@ -801,7 +793,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             request.ruling,
             request.arbitrator,
             request.arbitratorExtraData,
-            request.requestType,
             request.metaEvidenceID
         );
     }

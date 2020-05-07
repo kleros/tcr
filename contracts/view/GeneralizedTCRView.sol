@@ -138,7 +138,6 @@ contract GeneralizedTCRView {
         address challenger;
         address arbitrator;
         bytes arbitratorExtraData;
-        GeneralizedTCR.Status requestType;
         uint metaEvidenceID;
     }
 
@@ -162,7 +161,6 @@ contract GeneralizedTCRView {
                 ,
                 IArbitrator arbitrator,
                 bytes memory arbitratorExtraData,
-                GeneralizedTCR.Status requestType,
                 uint metaEvidenceID
             ) = gtcr.getRequestInfo(_itemID, i);
 
@@ -176,7 +174,6 @@ contract GeneralizedTCRView {
                 challenger: parties[uint(GeneralizedTCR.Party.Challenger)],
                 arbitrator: address(arbitrator),
                 arbitratorExtraData: arbitratorExtraData,
-                requestType: requestType,
                 metaEvidenceID: metaEvidenceID
             });
         }
@@ -447,7 +444,7 @@ contract GeneralizedTCRView {
         for (indexes[0]; indexes[0] < requestRoundCount[0]; indexes[0]++) {
             GeneralizedTCR.Party ruling;
             bool resolved;
-            (,,, resolved,, requestRoundCount[1], ruling,,,,) = gtcr.getRequestInfo(_itemID, indexes[0]);
+            (,,, resolved,, requestRoundCount[1], ruling,,,) = gtcr.getRequestInfo(_itemID, indexes[0]);
             if (!resolved) continue;
             for (indexes[1]; indexes[1] < requestRoundCount[1]; indexes[1]++) {
                 (
@@ -541,7 +538,7 @@ contract GeneralizedTCRView {
             uint numberOfRounds,
             GeneralizedTCR.Party ruling,
             IArbitrator arbitrator,
-            bytes memory arbitratorExtraData,,
+            bytes memory arbitratorExtraData,
         ) = gtcr.getRequestInfo(_itemID, item.numberOfRequests - 1);
         request = RequestData(
             item,
