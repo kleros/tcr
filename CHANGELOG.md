@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.8.1](https://github.com/kleros/tcr/compare/v1.7.0...v1.8.1) (2020-05-11)
+
+
+### Bug Fixes
+
+* add missing field in round getter and update view contract ([1a8fa61](https://github.com/kleros/tcr/commit/1a8fa61))
+* docs and error message ([abab004](https://github.com/kleros/tcr/commit/abab004))
+* don't require fee stake in the first round ([4f3bdde](https://github.com/kleros/tcr/commit/4f3bdde))
+* move evidenceGroupID mapping to event logs ([97feccd](https://github.com/kleros/tcr/commit/97feccd))
+* reduce complexity on withdrawFeesAndRewards ([fb7595f](https://github.com/kleros/tcr/commit/fb7595f))
+* reimbursement and fee withdrawal ([3f62396](https://github.com/kleros/tcr/commit/3f62396))
+* remove the request type since is available on event logs ([9e7046c](https://github.com/kleros/tcr/commit/9e7046c))
+* remove unused struct field ([c80b05a](https://github.com/kleros/tcr/commit/c80b05a))
+* typo, bug and useless condition ([911f71f](https://github.com/kleros/tcr/commit/911f71f))
+* update compiler version ([29ebd6b](https://github.com/kleros/tcr/commit/29ebd6b))
+
 ## [1.8.0](https://github.com/kleros/tcr/compare/v1.5.1...v1.8.0) (2020-04-27)
 
 ### Bug Fixes
