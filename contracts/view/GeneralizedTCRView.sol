@@ -20,6 +20,7 @@ import { RLPReader } from "solidity-rlp/contracts/RLPReader.sol";
 /**
  *  @title GeneralizedTCRView
  *  A view contract to fetch, batch, parse and return GTCR contract data efficiently.
+ *  This contract includes functions that can halt execution due to out-of-gas exceptions. Because of this it should never be relied upon by other contracts.
  */
 contract GeneralizedTCRView {
     using RLPReader for RLPReader.RLPItem;
@@ -179,7 +180,7 @@ contract GeneralizedTCRView {
         }
     }
 
-    /** @dev Find an item by matching column values.
+    /** @dev Find an item by matching column values exactly. Unless specified in the _ignoreColumns parameter, finding an item requires matching all columns.
      *  - Example:
      *  Item [18, 'PNK', 'Pinakion', '0xca35b7d915458ef540ade6068dfe2f44e8fa733c']
      *  RLP encoded: 0xe383504e4b128850696e616b696f6e94ca35b7d915458ef540ade6068dfe2f44e8fa733c
@@ -188,7 +189,8 @@ contract GeneralizedTCRView {
      *  @param _rlpEncodedMatch The RLP encoded item to match against the items on the list.
      *  @param _cursor The index from where to start looking for matches.
      *  @param _count The number of items to iterate and return while searching.
-     *  @param _includeAbsent Include items in the absent state.
+     *  @param _onlyRegistered Only include items in the registered state. Note that this includes registed items with pending removal requests.
+     *  @param _ignoreColumns Columns to ignore when searching. If this is an array with only false items, then every column must match exactly.
      *  @return An array with items that match the query.
      */
     function findItem(
@@ -196,7 +198,8 @@ contract GeneralizedTCRView {
         bytes memory _rlpEncodedMatch,
         uint _cursor,
         uint _count,
-        bool _includeAbsent
+        bool _onlyRegistered,
+        bool[] memory _ignoreColumns
     )
         public
         view
@@ -209,16 +212,23 @@ contract GeneralizedTCRView {
 
         for(uint i = _cursor; i < (_count == 0 ? gtcr.itemCount() : _count); i++) { // Iterate over every item in storage.
             QueryResult memory item = getItem(_address, gtcr.itemList(i));
-            if (!_includeAbsent && item.status == GeneralizedTCR.Status.Absent)
+            if (_onlyRegistered && (item.status == GeneralizedTCR.Status.Absent || item.status == GeneralizedTCR.Status.RegistrationRequested))
                 continue;
 
             RLPReader.RLPItem[] memory itemData = item.data.toRlpItem().toList();
+            bool itemFound = true;
             for (uint j = 0; j < matchItem.length; j++) { // Iterate over every column.
-                if (itemData[j].toBytes().equal(matchItem[j].toBytes())) {
-                    results[itemsFound] = item;
-                    itemsFound++;
+                if (!_ignoreColumns[j] && !itemData[j].toBytes().equal(matchItem[j].toBytes())) {
+                    // This column should not be ignored and it did not match input. Item not found.
+                    itemFound = false;
                     break;
                 }
+            }
+
+            // All not ignored columns matched, item found. Add it
+            if (itemFound) {
+                results[itemsFound] = item;
+                itemsFound++;
             }
         }
 
