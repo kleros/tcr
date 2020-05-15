@@ -329,7 +329,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _side The recipient of the contribution.
      */
     function fundAppeal(bytes32 _itemID, Party _side) external payable {
-        require(_side != Party.None, "Invalid side.");
+        require(_side == Party.Requester || _side == Party.Challenger, "Invalid side.");
         require(
             items[_itemID].status == Status.RegistrationRequested || items[_itemID].status == Status.ClearingRequested,
             "The item must have a pending request."
