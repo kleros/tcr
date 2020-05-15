@@ -43,7 +43,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     struct Item {
         bytes data; // The data describing the item.
         Status status; // The current status of the item.
-        Request[] requests; // List of status change requests made for the item.
+        Request[] requests; // List of status change requests made for the item in the form requests[requestID].
     }
 
     // Arrays with 3 elements map with the Party enum for better readability:
@@ -55,8 +55,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         uint disputeID; // ID of the dispute, if any.
         uint submissionTime; // Time when the request was made. Used to track when the challenge period ends.
         bool resolved; // True if the request was executed and/or any raised disputes were resolved.
-        address payable[3] parties; // Address of requester and challenger, if any.
-        Round[] rounds; // Tracks each round of a dispute.
+        address payable[3] parties; // Address of requester and challenger, if any, in the form parties[party].
+        Round[] rounds; // Tracks each round of a dispute in the form rounds[roundID].
         Party ruling; // The final ruling given, if any.
         IArbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
@@ -67,7 +67,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         uint[3] amountPaid; // Tracks the sum paid for each Party in this round. Includes arbitration fees, fee stakes and deposits.
         bool[3] hasPaid; // True if the Party has fully paid its fee in this round.
         uint feeRewards; // Sum of reimbursable fees and stake rewards available to the parties that made contributions to the side that ultimately wins a dispute.
-        mapping(address => uint[3]) contributions; // Maps contributors to their contributions for each side.
+        mapping(address => uint[3]) contributions; // Maps contributors to their contributions for each side in the form contributions[address][party].
     }
 
     /* Storage */
@@ -92,9 +92,9 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     uint public constant MULTIPLIER_DIVISOR = 10000; // Divisor parameter for multipliers.
 
     bytes32[] public itemList; // List of IDs of all submitted items.
-    mapping(bytes32 => Item) public items; // Maps the item ID to its data. items[_itemID].
-    mapping(address => mapping(uint => bytes32)) public arbitratorDisputeIDToItem;  // Maps a dispute ID to the ID of the item with the disputed request. arbitratorDisputeIDToItem[arbitrator][disputeID].
-    mapping(bytes32 => uint) public itemIDtoIndex; // Maps an item's ID to its position in the list.
+    mapping(bytes32 => Item) public items; // Maps the item ID to its data in the form items[_itemID].
+    mapping(address => mapping(uint => bytes32)) public arbitratorDisputeIDToItem;  // Maps a dispute ID to the ID of the item with the disputed request in the form arbitratorDisputeIDToItem[arbitrator][disputeID].
+    mapping(bytes32 => uint) public itemIDtoIndex; // Maps an item's ID to its position in the list in the form itemIDtoIndex[itemID].
 
      /* Modifiers */
 
@@ -726,7 +726,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _request The request to query.
      *  @param _round The round to query.
      *  @param _contributor The address of the contributor.
-     *  @return The contributions.
+     *  @return contributions The contributions.
      */
     function getContributions(
         bytes32 _itemID,
@@ -742,7 +742,9 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /** @dev Returns item's information. Includes length of requests array.
      *  @param _itemID The ID of the queried item.
-     *  @return The item information.
+     *  @return data The data describing the item.
+     *  @return status The current status of the item.
+     *  @return numberOfRequests Length of list of status change requests made for the item.
      */
     function getItemInfo(bytes32 _itemID)
         external
@@ -764,7 +766,16 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     /** @dev Gets information on a request made for the item.
      *  @param _itemID The ID of the queried item.
      *  @param _request The request to be queried.
-     *  @return The request information.
+     *  @return disputed True if a dispute was raised.
+     *  @return disputeID ID of the dispute, if any..
+     *  @return submissionTime Time when the request was made.
+     *  @return resolved True if the request was executed and/or any raised disputes were resolved.
+     *  @return parties Address of requester and challenger, if any.
+     *  @return numberOfRounds Number of rounds of dispute.
+     *  @return ruling The final ruling given, if any.
+     *  @return arbitrator The arbitrator trusted to solve disputes for this request.
+     *  @return arbitratorExtraData The extra data for the trusted arbitrator of this request.
+     *  @return metaEvidenceID The meta evidence to be used in a dispute for this case.
      */
     function getRequestInfo(bytes32 _itemID, uint _request)
         external
@@ -801,7 +812,10 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _itemID The ID of the queried item.
      *  @param _request The request to be queried.
      *  @param _round The round to be queried.
-     *  @return The round information.
+     *  @return appealed Whether appealed or not.
+     *  @return amountPaid Tracks the sum paid for each Party in this round.
+     *  @return hasPaid True if the Party has fully paid its fee in this round.
+     *  @return feeRewards Sum of reimbursable fees and stake rewards available to the parties that made contributions to the side that ultimately wins a dispute.
      */
     function getRoundInfo(bytes32 _itemID, uint _request, uint _round)
         external
