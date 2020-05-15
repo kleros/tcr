@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.9.0-alpha.1](https://github.com/kleros/tcr/compare/v1.8.1...v1.9.0-alpha.1) (2020-05-15)
+
+### Features
+
+- allow filtering items by status ([1f88766](https://github.com/kleros/tcr/commit/1f88766))
+- allow single column matching in findItem ([3b7de84](https://github.com/kleros/tcr/commit/3b7de84))
+
 ## [1.9.0-alpha.0](https://github.com/kleros/tcr/compare/v1.8.1...v1.9.0-alpha.0) (2020-05-15)
 
 ### Features
