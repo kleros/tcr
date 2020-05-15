@@ -189,7 +189,7 @@ contract GeneralizedTCRView {
      *  @param _rlpEncodedMatch The RLP encoded item to match against the items on the list.
      *  @param _cursor The index from where to start looking for matches.
      *  @param _count The number of items to iterate and return while searching.
-     *  @param _onlyRegistered Only include items in the registered state. Note that this includes registed items with pending removal requests.
+     *  @param _skipState Boolean tuple defining whether to skip items in a given state. [Absent, Registered, RegistrationRequested, ClearingRequested].
      *  @param _ignoreColumns Columns to ignore when searching. If this is an array with only false items, then every column must match exactly.
      *  @return An array with items that match the query.
      */
@@ -198,7 +198,7 @@ contract GeneralizedTCRView {
         bytes memory _rlpEncodedMatch,
         uint _cursor,
         uint _count,
-        bool _onlyRegistered,
+        bool[4] memory _skipState,
         bool[] memory _ignoreColumns
     )
         public
@@ -212,7 +212,7 @@ contract GeneralizedTCRView {
 
         for(uint i = _cursor; i < (_count == 0 ? gtcr.itemCount() : _count); i++) { // Iterate over every item in storage.
             QueryResult memory item = getItem(_address, gtcr.itemList(i));
-            if (_onlyRegistered && (item.status == GeneralizedTCR.Status.Absent || item.status == GeneralizedTCR.Status.RegistrationRequested))
+            if (_skipState[uint(item.status)])
                 continue;
 
             RLPReader.RLPItem[] memory itemData = item.data.toRlpItem().toList();
