@@ -20,6 +20,7 @@ import { RLPReader } from "solidity-rlp/contracts/RLPReader.sol";
 /**
  *  @title GeneralizedTCRView
  *  A view contract to fetch, batch, parse and return GTCR contract data efficiently.
+ *  This contract includes functions that can halt execution due to out-of-gas exceptions. Because of this it should never be relied upon by other contracts.
  */
 contract GeneralizedTCRView {
     using RLPReader for RLPReader.RLPItem;
@@ -46,7 +47,7 @@ contract GeneralizedTCRView {
         bool[3] hasPaid;
         uint feeRewards;
         uint submissionTime;
-        uint[3] paidFees;
+        uint[3] amountPaid;
         IArbitrator.DisputeStatus disputeStatus;
         uint numberOfRequests;
     }
@@ -117,7 +118,7 @@ contract GeneralizedTCRView {
             hasPaid: round.hasPaid,
             feeRewards: round.feeRewards,
             submissionTime: round.request.submissionTime,
-            paidFees: round.paidFees,
+            amountPaid: round.amountPaid,
             disputeStatus: IArbitrator.DisputeStatus.Waiting,
             numberOfRequests: round.request.item.numberOfRequests
         });
@@ -138,7 +139,6 @@ contract GeneralizedTCRView {
         address challenger;
         address arbitrator;
         bytes arbitratorExtraData;
-        GeneralizedTCR.Status requestType;
         uint metaEvidenceID;
     }
 
@@ -162,7 +162,6 @@ contract GeneralizedTCRView {
                 ,
                 IArbitrator arbitrator,
                 bytes memory arbitratorExtraData,
-                GeneralizedTCR.Status requestType,
                 uint metaEvidenceID
             ) = gtcr.getRequestInfo(_itemID, i);
 
@@ -176,13 +175,12 @@ contract GeneralizedTCRView {
                 challenger: parties[uint(GeneralizedTCR.Party.Challenger)],
                 arbitrator: address(arbitrator),
                 arbitratorExtraData: arbitratorExtraData,
-                requestType: requestType,
                 metaEvidenceID: metaEvidenceID
             });
         }
     }
 
-    /** @dev Find an item by matching column values.
+    /** @dev Find an item by matching column values exactly. Unless specified in the _ignoreColumns parameter, finding an item requires matching all columns.
      *  - Example:
      *  Item [18, 'PNK', 'Pinakion', '0xca35b7d915458ef540ade6068dfe2f44e8fa733c']
      *  RLP encoded: 0xe383504e4b128850696e616b696f6e94ca35b7d915458ef540ade6068dfe2f44e8fa733c
@@ -191,7 +189,8 @@ contract GeneralizedTCRView {
      *  @param _rlpEncodedMatch The RLP encoded item to match against the items on the list.
      *  @param _cursor The index from where to start looking for matches.
      *  @param _count The number of items to iterate and return while searching.
-     *  @param _includeAbsent Include items in the absent state.
+     *  @param _skipState Boolean tuple defining whether to skip items in a given state. [Absent, Registered, RegistrationRequested, ClearingRequested].
+     *  @param _ignoreColumns Columns to ignore when searching. If this is an array with only false items, then every column must match exactly.
      *  @return An array with items that match the query.
      */
     function findItem(
@@ -199,7 +198,8 @@ contract GeneralizedTCRView {
         bytes memory _rlpEncodedMatch,
         uint _cursor,
         uint _count,
-        bool _includeAbsent
+        bool[4] memory _skipState,
+        bool[] memory _ignoreColumns
     )
         public
         view
@@ -212,16 +212,23 @@ contract GeneralizedTCRView {
 
         for(uint i = _cursor; i < (_count == 0 ? gtcr.itemCount() : _count); i++) { // Iterate over every item in storage.
             QueryResult memory item = getItem(_address, gtcr.itemList(i));
-            if (!_includeAbsent && item.status == GeneralizedTCR.Status.Absent)
+            if (_skipState[uint(item.status)])
                 continue;
 
             RLPReader.RLPItem[] memory itemData = item.data.toRlpItem().toList();
+            bool itemFound = true;
             for (uint j = 0; j < matchItem.length; j++) { // Iterate over every column.
-                if (itemData[j].toBytes().equal(matchItem[j].toBytes())) {
-                    results[itemsFound] = item;
-                    itemsFound++;
+                if (!_ignoreColumns[j] && !itemData[j].toBytes().equal(matchItem[j].toBytes())) {
+                    // This column should not be ignored and it did not match input. Item not found.
+                    itemFound = false;
                     break;
                 }
+            }
+
+            // All not ignored columns matched, item found. Add it
+            if (itemFound) {
+                results[itemsFound] = item;
+                itemsFound++;
             }
         }
 
@@ -447,12 +454,12 @@ contract GeneralizedTCRView {
         for (indexes[0]; indexes[0] < requestRoundCount[0]; indexes[0]++) {
             GeneralizedTCR.Party ruling;
             bool resolved;
-            (,,, resolved,, requestRoundCount[1], ruling,,,,) = gtcr.getRequestInfo(_itemID, indexes[0]);
+            (,,, resolved,, requestRoundCount[1], ruling,,,) = gtcr.getRequestInfo(_itemID, indexes[0]);
             if (!resolved) continue;
             for (indexes[1]; indexes[1] < requestRoundCount[1]; indexes[1]++) {
                 (
                     ,
-                    uint[3] memory paidFees,
+                    uint[3] memory amountPaid,
                     bool[3] memory hasPaid,
                     uint feeRewards
                 ) = gtcr.getRoundInfo(_itemID, indexes[0], indexes[1]);
@@ -463,16 +470,16 @@ contract GeneralizedTCRView {
                     rewards += roundContributions[uint(GeneralizedTCR.Party.Requester)] + roundContributions[uint(GeneralizedTCR.Party.Challenger)];
                 } else if (ruling == GeneralizedTCR.Party.None) {
                     // Reimbursable fees proportional if there aren't a winner and loser.
-                    rewards += paidFees[uint(GeneralizedTCR.Party.Requester)] > 0
-                        ? (roundContributions[uint(GeneralizedTCR.Party.Requester)] * feeRewards) / (paidFees[uint(GeneralizedTCR.Party.Challenger)] + paidFees[uint(GeneralizedTCR.Party.Requester)])
+                    rewards += amountPaid[uint(GeneralizedTCR.Party.Requester)] > 0
+                        ? (roundContributions[uint(GeneralizedTCR.Party.Requester)] * feeRewards) / (amountPaid[uint(GeneralizedTCR.Party.Challenger)] + amountPaid[uint(GeneralizedTCR.Party.Requester)])
                         : 0;
-                    rewards += paidFees[uint(GeneralizedTCR.Party.Challenger)] > 0
-                        ? (roundContributions[uint(GeneralizedTCR.Party.Challenger)] * feeRewards) / (paidFees[uint(GeneralizedTCR.Party.Challenger)] + paidFees[uint(GeneralizedTCR.Party.Requester)])
+                    rewards += amountPaid[uint(GeneralizedTCR.Party.Challenger)] > 0
+                        ? (roundContributions[uint(GeneralizedTCR.Party.Challenger)] * feeRewards) / (amountPaid[uint(GeneralizedTCR.Party.Challenger)] + amountPaid[uint(GeneralizedTCR.Party.Requester)])
                         : 0;
                 } else {
                     // Contributors to the winner take the rewards.
-                    rewards += paidFees[uint(ruling)] > 0
-                        ? (roundContributions[uint(ruling)] * feeRewards) / paidFees[uint(ruling)]
+                    rewards += amountPaid[uint(ruling)] > 0
+                        ? (roundContributions[uint(ruling)] * feeRewards) / amountPaid[uint(ruling)]
                         : 0;
                 }
             }
@@ -504,7 +511,7 @@ contract GeneralizedTCRView {
     struct RoundData {
         RequestData request;
         bool appealed;
-        uint[3] paidFees;
+        uint[3] amountPaid;
         bool[3] hasPaid;
         uint feeRewards;
     }
@@ -541,7 +548,7 @@ contract GeneralizedTCRView {
             uint numberOfRounds,
             GeneralizedTCR.Party ruling,
             IArbitrator arbitrator,
-            bytes memory arbitratorExtraData,,
+            bytes memory arbitratorExtraData,
         ) = gtcr.getRequestInfo(_itemID, item.numberOfRequests - 1);
         request = RequestData(
             item,
@@ -567,14 +574,14 @@ contract GeneralizedTCRView {
         RequestData memory request = getLatestRequestData(_address, _itemID);
         (
             bool appealed,
-            uint[3] memory paidFees,
+            uint[3] memory amountPaid,
             bool[3] memory hasPaid,
             uint feeRewards
         ) = gtcr.getRoundInfo(_itemID, request.item.numberOfRequests - 1, request.numberOfRounds - 1);
         round = RoundData(
             request,
             appealed,
-            paidFees,
+            amountPaid,
             hasPaid,
             feeRewards
         );

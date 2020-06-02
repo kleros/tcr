@@ -6,7 +6,7 @@
  *  @deployments: []
  */
 
-pragma solidity ^0.5.15;
+pragma solidity ^0.5.16;
 
 import { GeneralizedTCR } from "./GeneralizedTCR.sol";
 
@@ -33,7 +33,7 @@ contract BatchWithdraw {
         uint _count
     ) public {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
-        (,,,,,uint numberOfRounds,,,,,) = gtcr.getRequestInfo(_itemID, _request);
+        (,,,,,uint numberOfRounds,,,,) = gtcr.getRequestInfo(_itemID, _request);
         for (uint i = _cursor; i < numberOfRounds && (_count == 0 || i < _count); i++)
             gtcr.withdrawFeesAndRewards(_contributor, _itemID, _request, i);
     }
