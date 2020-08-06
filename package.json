@@ -2,7 +2,6 @@
   "name": "@kleros/tcr",
   "version": "1.9.0-alpha.1",
   "description": "Arbitrable Permission Lists on Ethereum",
-  "main": "index.js",
   "repository": "https://github.com/kleros/tcr",
   "author": "Kleros",
   "license": "MIT",
@@ -20,7 +19,8 @@
     "release": "standard-version"
   },
   "files": [
-    "build/contracts/*.json"
+    "build/contracts/*.json",
+    "contracts/*.sol"
   ],
   "commitlint": {
     "extends": [
@@ -44,7 +44,7 @@
     "truffle": "^5.0.25"
   },
   "dependencies": {
-    "@kleros/erc-792": "^3.0.0",
+    "@kleros/erc-792": "^4.0.1",
     "@kleros/ethereum-libraries": "^1.0.0",
     "chai": "^4.2.0",
     "openzeppelin-test-helpers": "^0.4.3",
