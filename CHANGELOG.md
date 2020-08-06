@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.9.1](https://github.com/kleros/tcr/compare/v1.9.0...v1.9.1) (2020-08-06)
+
+### Bug Fixes
+
+- remove dependency on ethereum-libraries ([8690381](https://github.com/kleros/tcr/commit/8690381))
+
 ## [1.9.0](https://github.com/kleros/tcr/compare/v1.7.0...v1.9.0) (2020-08-06)
 
 ### Bug Fixes
