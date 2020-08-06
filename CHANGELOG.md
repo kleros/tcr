@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.9.0](https://github.com/kleros/tcr/compare/v1.7.0...v1.9.0) (2020-08-06)
+
+### Bug Fixes
+
+- first round fee stake ([#24](https://github.com/kleros/tcr/issues/24)) ([590f239](https://github.com/kleros/tcr/commit/590f239)), closes [#25](https://github.com/kleros/tcr/issues/25)
+- wrong erc-792 package breaking build ([a23c394](https://github.com/kleros/tcr/commit/a23c394))
+
 ## [1.9.0-alpha.1](https://github.com/kleros/tcr/compare/v1.8.1...v1.9.0-alpha.1) (2020-05-15)
 
 ### Features
