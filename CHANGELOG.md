@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.9.2](https://github.com/kleros/tcr/compare/v1.9.1...v1.9.2) (2020-08-06)
+
+### Bug Fixes
+
+- add missing utils folder to package ([b65634d](https://github.com/kleros/tcr/commit/b65634d))
+
 ### [1.9.1](https://github.com/kleros/tcr/compare/v1.9.0...v1.9.1) (2020-08-06)
 
 ### Bug Fixes
