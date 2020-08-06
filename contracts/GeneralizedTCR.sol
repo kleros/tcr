@@ -10,7 +10,7 @@ pragma solidity ^0.5.16;
 
 import { IArbitrable, IArbitrator } from "@kleros/erc-792/contracts/IArbitrator.sol";
 import { IEvidence } from "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
-import { CappedMath } from "@kleros/ethereum-libraries/contracts/CappedMath.sol";
+import { CappedMath } from "./utils/CappedMath.sol";
 
 /* solium-disable max-len */
 /* solium-disable security/no-block-members */

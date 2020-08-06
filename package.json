@@ -45,7 +45,6 @@
   },
   "dependencies": {
     "@kleros/erc-792": "3.0.0",
-    "@kleros/ethereum-libraries": "^1.0.0",
     "chai": "^4.2.0",
     "openzeppelin-test-helpers": "^0.4.3",
     "solidity-bytes-utils": "^0.0.8",
