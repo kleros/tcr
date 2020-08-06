@@ -20,7 +20,8 @@
   },
   "files": [
     "build/contracts/*.json",
-    "contracts/*.sol"
+    "contracts/*.sol",
+    "contracts/view/*.sol"
   ],
   "commitlint": {
     "extends": [
