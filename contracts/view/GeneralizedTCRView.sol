@@ -6,7 +6,7 @@
  *  @deployments: []
  */
 
-pragma solidity ^0.5.16;
+pragma solidity 0.5.17;
 pragma experimental ABIEncoderV2;
 
 import { GeneralizedTCR, IArbitrator } from "../GeneralizedTCR.sol";
@@ -372,7 +372,7 @@ contract GeneralizedTCRView {
     /** @dev Return the values of the items the query finds. This function is O(n), where n is the number of items. This could exceed the gas limit, therefore this function should only be used for interface display and not by other contracts.
      *  @param _address The address of the GTCR to query.
      *  @param _cursorIndex The index of the items from which to start iterating. To start from either the oldest or newest item.
-     *  @param _count The number of items to return.
+     *  @param _count The number of items to iterate.
      *  @param _filter The filter to use. Each element of the array in sequence means:
      *  - Include absent items in result;
      *  - Include registered items in result;
@@ -384,6 +384,7 @@ contract GeneralizedTCRView {
      *  - Include items challenged by _party.
      *  @param _oldestFirst Whether to sort from oldest to the newest item.
      *  @param _party The address to use if checking for items with a request or challenged by a specific party.
+     *  @param _limit The maximum number of items to return. If set to 0 will return _count items.
      *  @return The data of the items found and whether there are more items for the current filter and sort.
      */
     function queryItems(
@@ -392,7 +393,8 @@ contract GeneralizedTCRView {
         uint _count,
         bool[8] calldata _filter,
         bool _oldestFirst,
-        address _party
+        address _party,
+        uint _limit
     )
         external
         view
@@ -402,6 +404,7 @@ contract GeneralizedTCRView {
         results = new QueryResult[](_count);
         uint index = 0;
         uint count = _count;
+        if (_limit == 0) _limit = count;
 
         if (gtcr.itemCount() == 0) return (results, false);
 
@@ -425,6 +428,7 @@ contract GeneralizedTCRView {
             ) {
                 results[index] = item;
                 index++;
+                if (index == _limit) break;
             }
             count--;
             if (count == 0 || (i == 0 && !_oldestFirst) || (i == gtcr.itemCount() - 1 && _oldestFirst)) {
