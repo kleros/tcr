@@ -41,7 +41,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     /* Structs */
 
     struct Item {
-        bytes data; // The data describing the item.
         Status status; // The current status of the item.
         Request[] requests; // List of status change requests made for the item in the form requests[requestID].
     }
@@ -252,8 +251,19 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      */
     function addItem(bytes calldata _item) external payable {
         bytes32 itemID = keccak256(_item);
-        require(items[itemID].status == Status.Absent, "Item must be absent to be added.");
-        requestStatusChange(_item, submissionBaseDeposit);
+        Item storage item = items[itemID];
+        require(item.status == Status.Absent, "Item must be absent to be added.");
+
+        // Using `length` instead of `length - 1` as index because a new request will be added.
+        uint evidenceGroupID = uint(keccak256(abi.encodePacked(itemID, item.requests.length)));
+        if (item.requests.length == 0) {
+            itemList.push(itemID);
+            itemIDtoIndex[itemID] = itemList.length - 1;
+
+            emit ItemSubmitted(itemID, msg.sender, evidenceGroupID, _item);
+        }
+
+        requestStatusChange(itemID, submissionBaseDeposit);
     }
 
     /** @dev Submit a request to remove an item from the list. Accepts enough ETH to cover the deposit, reimburses the rest.
@@ -273,7 +283,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
         }
 
-        requestStatusChange(item.data, removalBaseDeposit);
+        requestStatusChange(_itemID, removalBaseDeposit);
     }
 
     /** @dev Challenges the request of the item. Accepts enough ETH to cover the deposit, reimburses the rest.
@@ -589,22 +599,11 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     /* Internal */
 
     /** @dev Submit a request to change item's status. Accepts enough ETH to cover the deposit, reimburses the rest.
-     *  @param _item The data describing the item.
+     *  @param _itemID The keccak256 hash of the item data.
      *  @param _baseDeposit The base deposit for the request.
      */
-    function requestStatusChange(bytes memory _item, uint _baseDeposit) internal {
-        bytes32 itemID = keccak256(_item);
-        Item storage item = items[itemID];
-
-        // Using `length` instead of `length - 1` as index because a new request will be added.
-        uint evidenceGroupID = uint(keccak256(abi.encodePacked(itemID, item.requests.length)));
-        if (item.requests.length == 0) {
-            item.data = _item;
-            itemList.push(itemID);
-            itemIDtoIndex[itemID] = itemList.length - 1;
-
-            emit ItemSubmitted(itemID, msg.sender, evidenceGroupID, item.data);
-        }
+    function requestStatusChange(bytes32 _itemID, uint _baseDeposit) internal {
+        Item storage item = items[_itemID];
 
         Request storage request = item.requests[item.requests.length++];
         if (item.status == Status.Absent) {
@@ -628,9 +627,11 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         require(round.amountPaid[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Requester)] = true;
 
-        emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1, false, false);
-        emit RequestSubmitted(itemID, item.requests.length - 1, item.status);
-        emit RequestEvidenceGroupID(itemID, item.requests.length - 1, evidenceGroupID);
+        emit ItemStatusChange(_itemID, item.requests.length - 1, request.rounds.length - 1, false, false);
+        emit RequestSubmitted(_itemID, item.requests.length - 1, item.status);
+
+        uint evidenceGroupID = uint(keccak256(abi.encodePacked(_itemID, item.requests.length)));
+        emit RequestEvidenceGroupID(_itemID, item.requests.length - 1, evidenceGroupID);
     }
 
     /** @dev Returns the contribution value and remainder from available ETH and required amount.
@@ -742,7 +743,6 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /** @dev Returns item's information. Includes length of requests array.
      *  @param _itemID The ID of the queried item.
-     *  @return data The data describing the item.
      *  @return status The current status of the item.
      *  @return numberOfRequests Length of list of status change requests made for the item.
      */
@@ -750,14 +750,12 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         external
         view
         returns (
-            bytes memory data,
             Status status,
             uint numberOfRequests
         )
     {
         Item storage item = items[_itemID];
         return (
-            item.data,
             item.status,
             item.requests.length
         );

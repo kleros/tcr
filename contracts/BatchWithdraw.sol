@@ -59,7 +59,6 @@ contract BatchWithdraw {
         GeneralizedTCR gtcr = GeneralizedTCR(_address);
         (
             ,
-            ,
             uint numberOfRequests
         ) = gtcr.getItemInfo(_itemID);
         for (uint i = _cursor; i < numberOfRequests && (_count == 0 || i < _count); i++)
