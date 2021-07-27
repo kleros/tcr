@@ -122,16 +122,7 @@ contract('GTCR', function(accounts) {
     )
 
     const item = await gtcr.items(itemID)
-    assert.equal(
-      item[0],
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-      'Item data has not been set up properly'
-    )
-    assert.equal(
-      item[1].toNumber(),
-      2,
-      'Item status has not been set up properly'
-    )
+    assert.equal(item.toNumber(), 2, 'Item status has not been set up properly')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(
@@ -373,7 +364,7 @@ contract('GTCR', function(accounts) {
     const newBalance = await web3.eth.getBalance(requester)
 
     const item = await gtcr.items(itemID)
-    assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
+    assert.equal(item.toNumber(), 1, 'Item should have status Registered')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'Request should be resolved')
@@ -621,7 +612,7 @@ contract('GTCR', function(accounts) {
     await arbitrator.giveRuling(1, PARTY.NONE)
 
     const item = await gtcr.items(itemID)
-    assert.equal(item[1].toNumber(), 0, 'Item should have status Absent')
+    assert.equal(item.toNumber(), 0, 'Item should have status Absent')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'The request should be resolved')
@@ -693,7 +684,7 @@ contract('GTCR', function(accounts) {
     await arbitrator.giveRuling(1, PARTY.REQUESTER)
 
     const item = await gtcr.items(itemID)
-    assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
+    assert.equal(item.toNumber(), 1, 'Item should have status Registered')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'The request should be resolved')
@@ -741,7 +732,7 @@ contract('GTCR', function(accounts) {
     await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     const item = await gtcr.items(itemID)
-    assert.equal(item[1].toNumber(), 0, 'Item should have status Absent')
+    assert.equal(item.toNumber(), 0, 'Item should have status Absent')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'The request should be resolved')
@@ -806,7 +797,7 @@ contract('GTCR', function(accounts) {
     await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     const item = await gtcr.items(itemID)
-    assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
+    assert.equal(item.toNumber(), 1, 'Item should have status Registered')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'The request should be resolved')
@@ -1027,7 +1018,7 @@ contract('GTCR', function(accounts) {
     await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     item = await gtcr.getItemInfo(itemID)
-    assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
+    assert.equal(item[0].toNumber(), 1, 'Item should have status Registered')
 
     // 3th request.
     await gtcr.removeItem(itemID, '', {
@@ -1038,9 +1029,9 @@ contract('GTCR', function(accounts) {
 
     await gtcr.executeRequest(itemID, { from: governor })
     item = await gtcr.getItemInfo(itemID)
-    assert.equal(item[1].toNumber(), 0, 'Item should have status Absent')
+    assert.equal(item[0].toNumber(), 0, 'Item should have status Absent')
     assert.equal(
-      item[2].toNumber(),
+      item[1].toNumber(),
       3,
       'The total number of requests is incorrect'
     )
