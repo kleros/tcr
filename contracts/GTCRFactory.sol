@@ -34,15 +34,17 @@ contract GTCRFactory {
      *  @param _registrationMetaEvidence The URI of the meta evidence object for registration requests.
      *  @param _clearingMetaEvidence The URI of the meta evidence object for clearing requests.
      *  @param _governor The trusted governor of this contract.
-     *  @param _submissionBaseDeposit The base deposit to submit an item.
-     *  @param _removalBaseDeposit The base deposit to remove an item.
-     *  @param _submissionChallengeBaseDeposit The base deposit to challenge a submission.
-     *  @param _removalChallengeBaseDeposit The base deposit to challenge a removal request.
+     *  @param _baseDeposits The base deposits for requests/challenges as follows:
+     *  - The base deposit to submit an item.
+     *  - The base deposit to remove an item.
+     *  - The base deposit to challenge a submission.
+     *  - The base deposit to challenge a removal request.
      *  @param _challengePeriodDuration The time in seconds parties have to challenge a request.
      *  @param _stakeMultipliers Multipliers of the arbitration cost in basis points (see GeneralizedTCR MULTIPLIER_DIVISOR) as follows:
      *  - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate).
      *  - The multiplier applied to the winner's fee stake for an appeal round.
      *  - The multiplier applied to the loser's fee stake for an appeal round.
+     *  @param _relayContract The address of the relay contract to add/remove items directly.
      */
     function deploy(
         IArbitrator _arbitrator,
@@ -51,12 +53,10 @@ contract GTCRFactory {
         string memory _registrationMetaEvidence,
         string memory _clearingMetaEvidence,
         address _governor,
-        uint _submissionBaseDeposit,
-        uint _removalBaseDeposit,
-        uint _submissionChallengeBaseDeposit,
-        uint _removalChallengeBaseDeposit,
+        uint[4] memory _baseDeposits,
         uint _challengePeriodDuration,
-        uint[3] memory _stakeMultipliers
+        uint[3] memory _stakeMultipliers,
+        address _relayContract
     ) public {
         GeneralizedTCR instance = new GeneralizedTCR(
                 _arbitrator,
@@ -65,12 +65,10 @@ contract GTCRFactory {
                 _registrationMetaEvidence,
                 _clearingMetaEvidence,
                 _governor,
-                _submissionBaseDeposit,
-                _removalBaseDeposit,
-                _submissionChallengeBaseDeposit,
-                _removalChallengeBaseDeposit,
+                _baseDeposits,
                 _challengePeriodDuration,
-                _stakeMultipliers
+                _stakeMultipliers,
+                _relayContract
         );
         instances.push(instance);
         emit NewGTCR(instance);

@@ -75,6 +75,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     IArbitrator public arbitrator; // The arbitrator contract.
     bytes public arbitratorExtraData; // Extra data for the arbitrator contract.
 
+    address public relayContract; // The contract that is used to add or remove items directly to speed up the interchain communication.
+
     uint RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
 
     address public governor; // The address that can make changes to the parameters of the contract.
@@ -99,6 +101,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      /* Modifiers */
 
     modifier onlyGovernor {require(msg.sender == governor, "The caller must be the governor."); _;}
+
+    modifier onlyRelay {require(msg.sender == relayContract, "The caller must be the relay."); _;}
 
     /* Events */
 
@@ -200,15 +204,17 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  @param _registrationMetaEvidence The URI of the meta evidence object for registration requests.
      *  @param _clearingMetaEvidence The URI of the meta evidence object for clearing requests.
      *  @param _governor The trusted governor of this contract.
-     *  @param _submissionBaseDeposit The base deposit to submit an item.
-     *  @param _removalBaseDeposit The base deposit to remove an item.
-     *  @param _submissionChallengeBaseDeposit The base deposit to challenge a submission.
-     *  @param _removalChallengeBaseDeposit The base deposit to challenge a removal request.
+     *  @param _baseDeposits The base deposits for requests/challenges as follows:
+     *  - The base deposit to submit an item.
+     *  - The base deposit to remove an item.
+     *  - The base deposit to challenge a submission.
+     *  - The base deposit to challenge a removal request.
      *  @param _challengePeriodDuration The time in seconds parties have to challenge a request.
      *  @param _stakeMultipliers Multipliers of the arbitration cost in basis points (see MULTIPLIER_DIVISOR) as follows:
      *  - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round (e.g. when the arbitrator refused to arbitrate).
      *  - The multiplier applied to the winner's fee stake for the subsequent round.
      *  - The multiplier applied to the loser's fee stake for the subsequent round.
+     *  @param _relayContract The address of the relay contract to add/remove items directly.
      */
     constructor(
         IArbitrator _arbitrator,
@@ -217,12 +223,10 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         string memory _registrationMetaEvidence,
         string memory _clearingMetaEvidence,
         address _governor,
-        uint _submissionBaseDeposit,
-        uint _removalBaseDeposit,
-        uint _submissionChallengeBaseDeposit,
-        uint _removalChallengeBaseDeposit,
+        uint[4] memory _baseDeposits,
         uint _challengePeriodDuration,
-        uint[3] memory _stakeMultipliers
+        uint[3] memory _stakeMultipliers,
+        address _relayContract
     ) public {
         emit MetaEvidence(0, _registrationMetaEvidence);
         emit MetaEvidence(1, _clearingMetaEvidence);
@@ -231,14 +235,15 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         arbitrator = _arbitrator;
         arbitratorExtraData = _arbitratorExtraData;
         governor = _governor;
-        submissionBaseDeposit = _submissionBaseDeposit;
-        removalBaseDeposit = _removalBaseDeposit;
-        submissionChallengeBaseDeposit = _submissionChallengeBaseDeposit;
-        removalChallengeBaseDeposit = _removalChallengeBaseDeposit;
+        submissionBaseDeposit = _baseDeposits[0];
+        removalBaseDeposit = _baseDeposits[1];
+        submissionChallengeBaseDeposit = _baseDeposits[2];
+        removalChallengeBaseDeposit = _baseDeposits[3];
         challengePeriodDuration = _challengePeriodDuration;
         sharedStakeMultiplier = _stakeMultipliers[0];
         winnerStakeMultiplier = _stakeMultipliers[1];
         loserStakeMultiplier = _stakeMultipliers[2];
+        relayContract = _relayContract;
     }
 
     /* External and Public */
@@ -246,6 +251,42 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     // ************************ //
     // *       Requests       * //
     // ************************ //
+
+    /** @dev Directly add an item to the list bypassing request-challenge. Can only be used by the relay contract.
+     *  @param _item The data describing the item.
+     */
+    function addItemDirectly(bytes calldata _item) external onlyRelay {
+        bytes32 itemID = keccak256(_item);
+        Item storage item = items[itemID];
+        require(item.status == Status.Absent, "Item must be absent to be added.");
+
+        if (item.requests.length == 0) {
+            item.data = _item;
+            itemList.push(itemID);
+            itemIDtoIndex[itemID] = itemList.length - 1;
+
+            emit ItemSubmitted(itemID, msg.sender, uint(keccak256(abi.encodePacked(itemID, item.requests.length))), item.data);
+        }
+        item.status = Status.Registered;
+        Request storage request = item.requests[item.requests.length++];
+        request.resolved = true;
+
+        emit ItemStatusChange(itemID, item.requests.length - 1, 0, false, true);
+    }
+
+    /** @dev Directly remove an item from the list bypassing request-challenge. Can only be used by the relay contract.
+     *  @param _itemID The ID of the item to remove.
+     */
+    function removeItemDirectly(bytes32 _itemID) external onlyRelay {
+        Item storage item = items[_itemID];
+        require(item.status == Status.Registered, "Item must be registered to be removed.");
+
+        item.status = Status.Absent;
+        Request storage request = item.requests[item.requests.length++];
+        request.resolved = true;
+
+        emit ItemStatusChange(_itemID, item.requests.length - 1, 0, false, true);
+    }
 
     /** @dev Submit a request to register an item. Accepts enough ETH to cover the deposit, reimburses the rest.
      *  @param _item The data describing the item.
@@ -584,6 +625,13 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         metaEvidenceUpdates++;
         emit MetaEvidence(2 * metaEvidenceUpdates, _registrationMetaEvidence);
         emit MetaEvidence(2 * metaEvidenceUpdates + 1, _clearingMetaEvidence);
+    }
+
+    /** @dev Change the address of the relay contract.
+     *  @param _relayContract The new address of the relay contract.
+     */
+    function changeRelayContract(address _relayContract) external onlyGovernor {
+        relayContract = _relayContract;
     }
 
     /* Internal */
