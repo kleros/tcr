@@ -879,7 +879,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Request storage request = item.requests[_request];
         Round storage round = request.rounds[_round];
         return (
-            _round != (request.rounds.length - 1),
+            (_round + 2) < request.rounds.length,
             round.amountPaid,
             round.hasPaid,
             round.feeRewards
