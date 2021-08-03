@@ -5,6 +5,8 @@ const { soliditySha3 } = require('web3-utils')
 const GTCR = artifacts.require('./GeneralizedTCR.sol')
 const Arbitrator = artifacts.require('EnhancedAppealableArbitrator')
 
+const RelayMock = artifacts.require('RelayMock')
+
 const PARTY = {
   NONE: 0,
   REQUESTER: 1,
@@ -45,6 +47,8 @@ contract('GTCR', function(accounts) {
       { from: governor }
     )
 
+    relay = await RelayMock.new({ from: governor })
+
     await arbitrator.changeArbitrator(arbitrator.address)
     await arbitrator.createDispute(3, arbitratorExtraData, {
       from: other,
@@ -58,12 +62,15 @@ contract('GTCR', function(accounts) {
       registrationMetaEvidence,
       clearingMetaEvidence,
       governor,
-      submissionBaseDeposit,
-      removalBaseDeposit,
-      submissionChallengeBaseDeposit,
-      removalChallengeBaseDeposit,
+      [
+        submissionBaseDeposit,
+        removalBaseDeposit,
+        submissionChallengeBaseDeposit,
+        removalChallengeBaseDeposit
+      ],
       challengePeriodDuration,
       [sharedStakeMultiplier, winnerStakeMultiplier, loserStakeMultiplier],
+      relay.address,
       { from: governor }
     )
 
@@ -88,6 +95,7 @@ contract('GTCR', function(accounts) {
     assert.equal(await gtcr.sharedStakeMultiplier(), sharedStakeMultiplier)
     assert.equal(await gtcr.winnerStakeMultiplier(), winnerStakeMultiplier)
     assert.equal(await gtcr.loserStakeMultiplier(), loserStakeMultiplier)
+    assert.equal(await gtcr.relayContract(), relay.address)
   })
 
   it('Should set the correct values and fire the event when requesting registration', async () => {
@@ -1182,6 +1190,17 @@ contract('GTCR', function(accounts) {
       1,
       'Incorrect metaEvidenceUpdates value'
     )
+
+    await expectRevert(
+      gtcr.changeRelayContract(other, { from: other }),
+      'The caller must be the governor.'
+    )
+    await gtcr.changeRelayContract(other, { from: governor2 })
+    assert.equal(
+      await gtcr.relayContract(),
+      other,
+      'Incorrect relayContract address'
+    )
   })
 
   it('Should not be possibe to submit evidence to resolved dispute', async () => {
@@ -1197,6 +1216,77 @@ contract('GTCR', function(accounts) {
     await expectRevert(
       gtcr.submitEvidence(itemID, 'Evidence2', { from: other }),
       'The dispute must not already be resolved.'
+    )
+  })
+
+  it('Should correctly add an item directly', async () => {
+    await expectRevert(
+      gtcr.addItemDirectly(
+        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
+        { from: other }
+      ),
+      'The caller must be the relay.'
+    )
+
+    await relay.add(
+      gtcr.address,
+      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222'
+    )
+
+    const itemID = await gtcr.itemList(0)
+    assert.equal(
+      itemID,
+      soliditySha3(
+        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222'
+      ),
+      'Item ID has not been set up properly'
+    )
+
+    const item = await gtcr.getItemInfo(itemID)
+    assert.equal(
+      item[0],
+      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
+      'Item data has not been set up properly'
+    )
+    assert.equal(item[1].toNumber(), 1, 'Item status should be Registered')
+
+    const request = await gtcr.getRequestInfo(itemID, 0)
+    assert.equal(request[3], true, 'Request should be resolved')
+
+    await expectRevert(
+      relay.add(
+        gtcr.address,
+        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222'
+      ),
+      'Item must be absent to be added.'
+    )
+  })
+
+  it('Should correctly remove an item directly', async () => {
+    await relay.add(
+      gtcr.address,
+      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222'
+    )
+
+    const itemID = await gtcr.itemList(0)
+
+    await expectRevert(
+      gtcr.removeItemDirectly(itemID, { from: other }),
+      'The caller must be the relay.'
+    )
+
+    await relay.remove(gtcr.address, itemID)
+
+    const item = await gtcr.getItemInfo(itemID)
+    assert.equal(item[1].toNumber(), 0, 'Item status should be Absent')
+    assert.equal(item[2].toNumber(), 2, 'Item has incorrect number of requests')
+
+    const request = await gtcr.getRequestInfo(itemID, 1)
+    assert.equal(request[3], true, 'Request should be resolved')
+
+    await expectRevert(
+      relay.remove(gtcr.address, itemID),
+      'Item must be registered to be removed.'
     )
   })
 })
