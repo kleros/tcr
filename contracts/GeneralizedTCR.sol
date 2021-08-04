@@ -6,7 +6,7 @@
  *  @deployments: []
  */
 
-pragma solidity ^0.5.16;
+pragma solidity 0.5.17;
 
 import { IArbitrable, IArbitrator } from "@kleros/erc-792/contracts/IArbitrator.sol";
 import { IEvidence } from "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
@@ -108,92 +108,53 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     /**
      *  @dev Emitted when a party makes a request, raises a dispute or when a request is resolved.
      *  @param _itemID The ID of the affected item.
-     *  @param _requestIndex The index of the request.
-     *  @param _roundIndex The index of the round.
-     *  @param _disputed Whether the request is disputed.
-     *  @param _resolved Whether the request is executed.
      */
-    event ItemStatusChange(
-      bytes32 indexed _itemID,
-      uint indexed _requestIndex,
-      uint indexed _roundIndex,
-      bool _disputed,
-      bool _resolved
-    );
+    event ItemStatusChange(bytes32 indexed _itemID);
 
     /**
      *  @dev Emitted when someone submits an item for the first time.
      *  @param _itemID The ID of the new item.
-     *  @param _submitter The address of the requester.
-     *  @param _evidenceGroupID Unique identifier of the evidence group the evidence belongs to.
-     *  @param _data The item data.
+     *  @param _data The item data URI.
      */
     event ItemSubmitted(
       bytes32 indexed _itemID,
-      address indexed _submitter,
-      uint indexed _evidenceGroupID,
-      bytes _data
+      string _data
     );
 
     /**
      *  @dev Emitted when someone submits a request.
      *  @param _itemID The ID of the affected item.
-     *  @param _requestIndex The index of the latest request.
-     *  @param _requestType Whether it is a registration or a removal request.
+     *  @param _evidenceGroupID Unique identifier of the evidence group the evidence belongs to.
      */
     event RequestSubmitted(
       bytes32 indexed _itemID,
-      uint indexed _requestIndex,
-      Status indexed _requestType
-    );
-
-    /**
-     *  @dev Emitted when someone submits a request. This is useful to quickly find an item and request from an evidence event and vice-versa.
-     *  @param _itemID The ID of the affected item.
-     *  @param _requestIndex The index of the latest request.
-     *  @param _evidenceGroupID The evidence group ID used for this request.
-     */
-    event RequestEvidenceGroupID(
-      bytes32 indexed _itemID,
-      uint indexed _requestIndex,
-      uint indexed _evidenceGroupID
+      uint _evidenceGroupID
     );
 
     /**
      *  @dev Emitted when a party contributes to an appeal.
      *  @param _itemID The ID of the item.
      *  @param _contributor The address making the contribution.
-     *  @param _request The index of the request.
-     *  @param _round The index of the round receiving the contribution.
-     *  @param _amount The amount of the contribution.
      *  @param _side The party receiving the contribution.
      */
     event AppealContribution(
         bytes32 indexed _itemID,
-        address indexed _contributor,
-        uint indexed _request,
-        uint _round,
-        uint _amount,
+        address _contributor,
         Party _side
-    );
-
-    /** @dev Emitted when one of the parties successfully paid its appeal fees.
-     *  @param _itemID The ID of the item.
-     *  @param _request The index of the request.
-     *  @param _round The index of the round.
-     *  @param _side The side that is fully funded.
-     */
-    event HasPaidAppealFee(
-      bytes32 indexed _itemID,
-      uint indexed _request,
-      uint indexed _round,
-      Party _side
     );
 
     /** @dev Emitted when the address of the connected TCR is set. The connected TCR is an instance of the Generalized TCR contract where each item is the address of a TCR related to this one.
      *  @param _connectedTCR The address of the connected TCR.
      */
     event ConnectedTCRSet(address indexed _connectedTCR);
+
+    /** @dev Emitted when someone withdraws more than 0 rewards.
+     *  @param _beneficiary The address that made contributions to a request.
+     *  @param _itemID The ID of the item submission to withdraw from.
+     *  @param _request The request from which to withdraw from.
+     *  @param _round The round from which to withdraw from.
+     */
+    event RewardWithdrawn(address _beneficiary, bytes32 _itemID, uint _request, uint _round);
 
     /**
      *  @dev Deploy the arbitrable curated registry.
@@ -252,25 +213,24 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
     // ************************ //
 
     /** @dev Directly add an item to the list bypassing request-challenge. Can only be used by the relay contract.
-     *  @param _item The data describing the item.
+     *  @param _item The URI to the item data.
      */
-    function addItemDirectly(bytes calldata _item) external onlyRelay {
-        bytes32 itemID = keccak256(_item);
+    function addItemDirectly(string calldata _item) external onlyRelay {
+        bytes32 itemID = keccak256(abi.encodePacked(_item));
         Item storage item = items[itemID];
         require(item.status == Status.Absent, "Item must be absent to be added.");
 
         if (item.requests.length == 0) {
-            item.data = _item;
             itemList.push(itemID);
             itemIDtoIndex[itemID] = itemList.length - 1;
 
-            emit ItemSubmitted(itemID, msg.sender, uint(keccak256(abi.encodePacked(itemID, item.requests.length))), item.data);
+            emit ItemSubmitted(itemID, _item);
         }
         item.status = Status.Registered;
         Request storage request = item.requests[item.requests.length++];
         request.resolved = true;
 
-        emit ItemStatusChange(itemID, item.requests.length - 1, 0, false, true);
+        emit ItemStatusChange(itemID);
     }
 
     /** @dev Directly remove an item from the list bypassing request-challenge. Can only be used by the relay contract.
@@ -284,14 +244,14 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         Request storage request = item.requests[item.requests.length++];
         request.resolved = true;
 
-        emit ItemStatusChange(_itemID, item.requests.length - 1, 0, false, true);
+        emit ItemStatusChange(_itemID);
     }
 
     /** @dev Submit a request to register an item. Accepts enough ETH to cover the deposit, reimburses the rest.
-     *  @param _item The data describing the item.
+     *  @param _item The URI to the item data.
      */
-    function addItem(bytes calldata _item) external payable {
-        bytes32 itemID = keccak256(_item);
+    function addItem(string calldata _item) external payable {
+        bytes32 itemID = keccak256(abi.encodePacked(_item));
         Item storage item = items[itemID];
         require(item.status == Status.Absent, "Item must be absent to be added.");
 
@@ -301,7 +261,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             itemList.push(itemID);
             itemIDtoIndex[itemID] = itemList.length - 1;
 
-            emit ItemSubmitted(itemID, msg.sender, evidenceGroupID, _item);
+            emit ItemSubmitted(itemID, _item);
         }
 
         requestStatusChange(itemID, submissionBaseDeposit);
@@ -422,15 +382,11 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         emit AppealContribution(
             _itemID,
             msg.sender,
-            items[_itemID].requests.length - 1,
-            request.rounds.length - 1,
-            contribution,
             _side
         );
 
         if (round.amountPaid[uint(_side)] >= totalCost) {
             round.hasPaid[uint(_side)] = true;
-            emit HasPaidAppealFee(_itemID, items[_itemID].requests.length - 1, request.rounds.length - 1, _side);
         }
 
         // Raise appeal if both sides are fully funded.
@@ -478,6 +434,9 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         round.contributions[_beneficiary][uint(Party.Challenger)] = 0;
 
         _beneficiary.send(reward);
+
+        if (reward > 0)
+            emit RewardWithdrawn(_beneficiary, _itemID, _request, _round);
     }
 
     /** @dev Executes an unchallenged request if the challenge period has passed.
@@ -500,7 +459,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
             revert("There must be a request.");
 
         request.resolved = true;
-        emit ItemStatusChange(_itemID, item.requests.length - 1, request.rounds.length - 1, false, true);
+        emit ItemStatusChange(_itemID);
 
         withdrawFeesAndRewards(request.parties[uint(Party.Requester)], _itemID, item.requests.length - 1, 0); // Automatically withdraw for the requester.
     }
@@ -675,11 +634,9 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         require(round.amountPaid[uint(Party.Requester)] >= totalCost, "You must fully fund your side.");
         round.hasPaid[uint(Party.Requester)] = true;
 
-        emit ItemStatusChange(_itemID, item.requests.length - 1, request.rounds.length - 1, false, false);
-        emit RequestSubmitted(_itemID, item.requests.length - 1, item.status);
-
         uint evidenceGroupID = uint(keccak256(abi.encodePacked(_itemID, item.requests.length)));
-        emit RequestEvidenceGroupID(_itemID, item.requests.length - 1, evidenceGroupID);
+
+        emit RequestSubmitted(_itemID, evidenceGroupID);
     }
 
     /** @dev Returns the contribution value and remainder from available ETH and required amount.
@@ -748,7 +705,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         request.resolved = true;
         request.ruling = Party(_ruling);
 
-        emit ItemStatusChange(itemID, item.requests.length - 1, request.rounds.length - 1, true, true);
+        emit ItemStatusChange(itemID);
 
         // Automatically withdraw first deposits and reimbursements (first round only).
         if (winner == Party.None) {

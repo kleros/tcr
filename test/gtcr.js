@@ -100,32 +100,30 @@ contract('GTCR', function(accounts) {
 
   it('Should set the correct values and fire the event when requesting registration', async () => {
     await expectRevert(
-      gtcr.addItem(
-        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-        { from: requester, value: submitterTotalCost - 1 }
-      ),
+      gtcr.addItem('/ipfs/Qwabdaa', {
+        from: requester,
+        value: submitterTotalCost - 1
+      }),
       'You must fully fund your side.'
     )
 
-    const txAddItem = await gtcr.addItem(
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-      { from: requester, value: submitterTotalCost }
-    )
+    const txAddItem = await gtcr.addItem('/ipfs/Qwabdaa', {
+      from: requester,
+      value: submitterTotalCost
+    })
 
     await expectRevert(
-      gtcr.addItem(
-        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-        { from: requester, value: submitterTotalCost }
-      ),
+      gtcr.addItem('/ipfs/Qwabdaa', {
+        from: requester,
+        value: submitterTotalCost
+      }),
       'Item must be absent to be added.'
     )
 
     const itemID = await gtcr.itemList(0)
     assert.equal(
       itemID,
-      soliditySha3(
-        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222'
-      ),
+      soliditySha3('/ipfs/Qwabdaa'),
       'Item ID has not been set up properly'
     )
 
@@ -175,7 +173,7 @@ contract('GTCR', function(accounts) {
 
     assert.equal(
       txAddItem.logs[1].event,
-      'ItemStatusChange',
+      'RequestSubmitted',
       'The event has not been created'
     )
     assert.equal(
@@ -183,23 +181,13 @@ contract('GTCR', function(accounts) {
       itemID,
       'The event has wrong item ID'
     )
-    assert.equal(
-      txAddItem.logs[1].args._requestIndex.toNumber(),
-      0,
-      'The event has wrong request index'
-    )
-    assert.equal(
-      txAddItem.logs[1].args._roundIndex.toNumber(),
-      0,
-      'The event has wrong round index'
-    )
   })
 
   it('Should set the correct values and create a dispute after the item is challenged and fire 2 events', async () => {
-    await gtcr.addItem(
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-      { from: requester, value: submitterTotalCost }
-    )
+    await gtcr.addItem('/ipfs/Qwabdaa', {
+      from: requester,
+      value: submitterTotalCost
+    })
     const itemID = await gtcr.itemList(0)
 
     await expectRevert(
@@ -355,10 +343,10 @@ contract('GTCR', function(accounts) {
   })
 
   it('Should successfully execute the request if it has not been challenged and fire the event', async () => {
-    await gtcr.addItem(
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-      { from: requester, value: submitterTotalCost }
-    )
+    await gtcr.addItem('/ipfs/Qwabdaa', {
+      from: requester,
+      value: submitterTotalCost
+    })
     const itemID = await gtcr.itemList(0)
     const oldBalance = await web3.eth.getBalance(requester)
 
@@ -386,16 +374,6 @@ contract('GTCR', function(accounts) {
       txExecute.logs[0].args._itemID,
       itemID,
       'The event has wrong item ID'
-    )
-    assert.equal(
-      txExecute.logs[0].args._requestIndex.toNumber(),
-      0,
-      'The event has wrong request index'
-    )
-    assert.equal(
-      txExecute.logs[0].args._roundIndex.toNumber(),
-      0,
-      'The event has wrong round index'
     )
 
     assert(
@@ -1221,52 +1199,33 @@ contract('GTCR', function(accounts) {
 
   it('Should correctly add an item directly', async () => {
     await expectRevert(
-      gtcr.addItemDirectly(
-        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-        { from: other }
-      ),
+      gtcr.addItemDirectly('/ipfs/Qwabdaa', { from: other }),
       'The caller must be the relay.'
     )
 
-    await relay.add(
-      gtcr.address,
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222'
-    )
+    await relay.add(gtcr.address, '/ipfs/Qwabdaa')
 
     const itemID = await gtcr.itemList(0)
     assert.equal(
       itemID,
-      soliditySha3(
-        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222'
-      ),
+      soliditySha3('/ipfs/Qwabdaa'),
       'Item ID has not been set up properly'
     )
 
     const item = await gtcr.getItemInfo(itemID)
-    assert.equal(
-      item[0],
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-      'Item data has not been set up properly'
-    )
-    assert.equal(item[1].toNumber(), 1, 'Item status should be Registered')
+    assert.equal(item[0].toNumber(), 1, 'Item status should be Registered')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'Request should be resolved')
 
     await expectRevert(
-      relay.add(
-        gtcr.address,
-        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222'
-      ),
+      relay.add(gtcr.address, '/ipfs/Qwabdaa'),
       'Item must be absent to be added.'
     )
   })
 
   it('Should correctly remove an item directly', async () => {
-    await relay.add(
-      gtcr.address,
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222'
-    )
+    await relay.add(gtcr.address, '/ipfs/Qwabdaa')
 
     const itemID = await gtcr.itemList(0)
 
@@ -1278,8 +1237,8 @@ contract('GTCR', function(accounts) {
     await relay.remove(gtcr.address, itemID)
 
     const item = await gtcr.getItemInfo(itemID)
-    assert.equal(item[1].toNumber(), 0, 'Item status should be Absent')
-    assert.equal(item[2].toNumber(), 2, 'Item has incorrect number of requests')
+    assert.equal(item[0].toNumber(), 0, 'Item status should be Absent')
+    assert.equal(item[1].toNumber(), 2, 'Item has incorrect number of requests')
 
     const request = await gtcr.getRequestInfo(itemID, 1)
     assert.equal(request[3], true, 'Request should be resolved')

@@ -4,7 +4,7 @@ import "../GeneralizedTCR.sol";
 
 contract RelayMock {
 
-    function add(GeneralizedTCR _gtcr,  bytes calldata _itemData) external {
+    function add(GeneralizedTCR _gtcr,  string calldata _itemData) external {
         _gtcr.addItemDirectly(_itemData);
     }
 
