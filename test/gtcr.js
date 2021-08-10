@@ -1235,9 +1235,6 @@ contract('GTCR', function(accounts) {
     const item = await gtcr.getItemInfo(itemID)
     assert.equal(item[0].toNumber(), 1, 'Item status should be Registered')
 
-    const request = await gtcr.getRequestInfo(itemID, 0)
-    assert.equal(request[3], true, 'Request should be resolved')
-
     await expectRevert(
       relay.add(gtcr.address, '/ipfs/Qwabdaa'),
       'Item must be absent to be added.'
@@ -1257,10 +1254,7 @@ contract('GTCR', function(accounts) {
 
     const item = await gtcr.getItemInfo(itemID)
     assert.equal(item[0].toNumber(), 0, 'Item status should be Absent')
-    assert.equal(item[1].toNumber(), 2, 'Item has incorrect number of requests')
-
-    const request = await gtcr.getRequestInfo(itemID, 1)
-    assert.equal(request[3], true, 'Request should be resolved')
+    assert.equal(item[1].toNumber(), 0, 'Item has incorrect number of requests') // Direct adds don't generate requests.
 
     await expectRevert(
       relay.remove(gtcr.address, itemID),
