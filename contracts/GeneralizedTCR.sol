@@ -71,12 +71,13 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
 
     /* Storage */
 
+    bool private initialized;
     IArbitrator public arbitrator; // The arbitrator contract.
     bytes public arbitratorExtraData; // Extra data for the arbitrator contract.
 
     address public relayContract; // The contract that is used to add or remove items directly to speed up the interchain communication.
 
-    uint constant RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
+    uint public constant RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
 
     address public governor; // The address that can make changes to the parameters of the contract.
     uint public submissionBaseDeposit; // The base deposit to submit an item.
@@ -156,8 +157,10 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      */
     event RewardWithdrawn(address indexed _beneficiary, bytes32 indexed _itemID, uint _request, uint _round);
 
+    constructor() public {}
+
     /**
-     *  @dev Deploy the arbitrable curated registry.
+     *  @dev Initialize the arbitrable curated registry.
      *  @param _arbitrator Arbitrator to resolve potential disputes. The arbitrator is trusted to support appeal periods and not reenter.
      *  @param _arbitratorExtraData Extra data for the trusted arbitrator contract.
      *  @param _connectedTCR The address of the TCR that stores related TCR addresses. This parameter can be left empty.
@@ -176,7 +179,7 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
      *  - The multiplier applied to the loser's fee stake for the subsequent round.
      *  @param _relayContract The address of the relay contract to add/remove items directly.
      */
-    constructor(
+    function initialize(
         IArbitrator _arbitrator,
         bytes memory _arbitratorExtraData,
         address _connectedTCR,
@@ -188,6 +191,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         uint[3] memory _stakeMultipliers,
         address _relayContract
     ) public {
+        require(!initialized, "Already initialized.");
+
         emit MetaEvidence(0, _registrationMetaEvidence);
         emit MetaEvidence(1, _clearingMetaEvidence);
         emit ConnectedTCRSet(_connectedTCR);
@@ -204,6 +209,8 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         winnerStakeMultiplier = _stakeMultipliers[1];
         loserStakeMultiplier = _stakeMultipliers[2];
         relayContract = _relayContract;
+
+        initialized = true;
     }
 
     /* External and Public */

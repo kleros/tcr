@@ -3,6 +3,7 @@ const { BN, expectRevert, time } = require('openzeppelin-test-helpers')
 const { soliditySha3 } = require('web3-utils')
 
 const GTCR = artifacts.require('./GeneralizedTCR.sol')
+const GTCRFactory = artifacts.require('./GTCRFactory.sol')
 const Arbitrator = artifacts.require('EnhancedAppealableArbitrator')
 
 const RelayMock = artifacts.require('RelayMock')
@@ -35,6 +36,9 @@ contract('GTCR', function(accounts) {
   const clearingMetaEvidence = 'clearingMetaEvidence.json'
 
   let arbitrator
+  let factory
+  let gtcr
+  let implementation
   let MULTIPLIER_DIVISOR
   let submitterTotalCost
   let submissionChallengeTotalCost
@@ -55,7 +59,9 @@ contract('GTCR', function(accounts) {
       value: arbitrationCost
     }) // Create a dispute so the index in tests will not be a default value.
 
-    gtcr = await GTCR.new(
+    implementation = await GTCR.new() // This contract is going to be used with DELEGATECALL from each GTCR proxy.
+    factory = await GTCRFactory.new(implementation.address)
+    await factory.deploy(
       arbitrator.address,
       arbitratorExtraData,
       other, // Temporarily set connectedTCR to 'other' account for test purposes.
@@ -73,6 +79,8 @@ contract('GTCR', function(accounts) {
       relay.address,
       { from: governor }
     )
+    const proxyAddress = await factory.instances(new BN(0))
+    gtcr = await GTCR.at(proxyAddress)
 
     MULTIPLIER_DIVISOR = (await gtcr.MULTIPLIER_DIVISOR()).toNumber()
     submitterTotalCost = arbitrationCost + submissionBaseDeposit
