@@ -356,20 +356,17 @@ contract GeneralizedTCR is IArbitrable, IEvidence {
         uint multiplier;
         {
             Party winner = Party(request.arbitrator.currentRuling(request.disputeID));
-            Party loser;
-            if (winner == Party.Requester)
-                loser = Party.Challenger;
-            else if (winner == Party.Challenger)
-                loser = Party.Requester;
-            require(_side != loser || (now-appealPeriodStart < (appealPeriodEnd-appealPeriodStart)/2), "The loser must contribute during the first half of the appeal period.");
-
-
-            if (_side == winner)
-                multiplier = winnerStakeMultiplier;
-            else if (_side == loser)
-                multiplier = loserStakeMultiplier;
-            else
+            if (winner == Party.None) {
                 multiplier = sharedStakeMultiplier;
+            } else if (_side == winner) {
+                multiplier = winnerStakeMultiplier;
+            } else {
+                multiplier = loserStakeMultiplier;
+                require(
+                    block.timestamp < (appealPeriodStart+appealPeriodEnd)/2,
+                    "The loser must contribute during the first half of the appeal period."
+                );
+            }
         }
         /* solium-enable indentation */
 
