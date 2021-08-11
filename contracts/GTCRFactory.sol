@@ -67,7 +67,7 @@ contract GTCRFactory {
         uint[3] memory _stakeMultipliers,
         address _relayContract
     ) public {
-        GeneralizedTCR instance = clone();
+        GeneralizedTCR instance = clone(GTCR);
         instance.initialize(
                 _arbitrator,
                 _arbitratorExtraData,
@@ -86,15 +86,15 @@ contract GTCRFactory {
 
     /**
      * @notice Adaptation of @openzeppelin/contracts/proxy/Clones.sol.
-     * @dev Deploys and returns the address of a clone that mimics the behaviour of `GTCR`.
-     *
+     * @dev Deploys and returns the adcdress of a clone that mimics the behaviour of `GTCR`.
+     * @param _implementation Address of the contract to clone.
      * This function uses the create opcode, which should never revert.
      */
-    function clone() internal returns (GeneralizedTCR instance) {
+    function clone(address _implementation) internal returns (GeneralizedTCR instance) {
         assembly {
             let ptr := mload(0x40)
             mstore(ptr, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
-            mstore(add(ptr, 0x14), shl(0x60, GTCR_slot)) // No need to clean GTCR slot.
+            mstore(add(ptr, 0x14), shl(0x60, _implementation))
             mstore(add(ptr, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
             instance := create(0, ptr, 0x37)
         }
