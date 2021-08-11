@@ -55,7 +55,8 @@ contract('GTCR', function(accounts) {
       value: arbitrationCost
     }) // Create a dispute so the index in tests will not be a default value.
 
-    gtcr = await GTCR.new(
+    gtcr = await GTCR.new()
+    await gtcr.initialize(
       arbitrator.address,
       arbitratorExtraData,
       other, // Temporarily set connectedTCR to 'other' account for test purposes.

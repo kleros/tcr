@@ -25,6 +25,15 @@ contract GTCRFactory {
     event NewGTCR(GeneralizedTCR indexed _address);
 
     GeneralizedTCR[] public instances;
+    address public GTCR;
+
+    /**
+     *  @dev Constructor.
+     *  @param _GTCR Address of the generalized TCR contract that is going to be used for each new deployment.
+     */
+    constructor(address _GTCR) public {
+        GTCR = _GTCR;
+    }
 
     /**
      *  @dev Deploy the arbitrable curated registry.
@@ -58,7 +67,8 @@ contract GTCRFactory {
         uint[3] memory _stakeMultipliers,
         address _relayContract
     ) public {
-        GeneralizedTCR instance = new GeneralizedTCR(
+        GeneralizedTCR instance = clone();
+        instance.initialize(
                 _arbitrator,
                 _arbitratorExtraData,
                 _connectedTCR,
@@ -72,6 +82,23 @@ contract GTCRFactory {
         );
         instances.push(instance);
         emit NewGTCR(instance);
+    }
+
+    /**
+     * @notice Adaptation from @openzeppelin/contracts/proxy/Clones.sol.
+     * @dev Deploys and returns the address of a clone that mimics the behaviour of `GTCR`.
+     *
+     * This function uses the create opcode, which should never revert.
+     */
+    function clone() internal returns (GeneralizedTCR instance) {
+        assembly {
+            let ptr := mload(0x40)
+            mstore(ptr, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
+            mstore(add(ptr, 0x14), shl(0x60, GTCR_slot))
+            mstore(add(ptr, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
+            instance := create(0, ptr, 0x37)
+        }
+        require(instance != GeneralizedTCR(0), "ERC1167: create failed");
     }
 
     /**
