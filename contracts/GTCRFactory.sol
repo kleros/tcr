@@ -85,7 +85,7 @@ contract GTCRFactory {
     }
 
     /**
-     * @notice Adaptation from @openzeppelin/contracts/proxy/Clones.sol.
+     * @notice Adaptation of @openzeppelin/contracts/proxy/Clones.sol.
      * @dev Deploys and returns the address of a clone that mimics the behaviour of `GTCR`.
      *
      * This function uses the create opcode, which should never revert.
@@ -94,7 +94,7 @@ contract GTCRFactory {
         assembly {
             let ptr := mload(0x40)
             mstore(ptr, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
-            mstore(add(ptr, 0x14), shl(0x60, GTCR_slot))
+            mstore(add(ptr, 0x14), shl(0x60, GTCR_slot)) // No need to clean GTCR slot.
             mstore(add(ptr, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
             instance := create(0, ptr, 0x37)
         }
