@@ -2,13 +2,13 @@
 const { BN, expectRevert, time } = require('openzeppelin-test-helpers')
 const { soliditySha3 } = require('web3-utils')
 
-const GTCR = artifacts.require('./GeneralizedTCR.sol')
-const GTCRFactory = artifacts.require('./GTCRFactory.sol')
+const GTCR = artifacts.require('./LightGeneralizedTCR.sol')
+const LightGTCRFactory = artifacts.require('./LightGTCRFactory.sol')
 const Arbitrator = artifacts.require('EnhancedAppealableArbitrator')
 
 const RelayMock = artifacts.require('RelayMock')
 
-contract('GTCR', function(accounts) {
+contract('LightGTCRFactory', function(accounts) {
   const governor = accounts[0]
   const other = accounts[1]
   const arbitratorExtraData = '0x85'
@@ -48,7 +48,7 @@ contract('GTCR', function(accounts) {
     }) // Create a dispute so the index in tests will not be a default value.
 
     implementation = await GTCR.new() // This contract is going to be used with DELEGATECALL from each GTCR proxy.
-    factory = await GTCRFactory.new(implementation.address)
+    factory = await LightGTCRFactory.new(implementation.address)
     await factory.deploy(
       arbitrator.address,
       arbitratorExtraData,

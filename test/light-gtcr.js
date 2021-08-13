@@ -2,8 +2,11 @@
 const { BN, expectRevert, time } = require('openzeppelin-test-helpers')
 const { soliditySha3 } = require('web3-utils')
 
-const GTCR = artifacts.require('./GeneralizedTCR.sol')
+const GTCR = artifacts.require('./LightGeneralizedTCR.sol')
+const LightGTCRFactory = artifacts.require('./LightGTCRFactory.sol')
 const Arbitrator = artifacts.require('EnhancedAppealableArbitrator')
+
+const RelayMock = artifacts.require('RelayMock')
 
 const PARTY = {
   NONE: 0,
@@ -11,7 +14,7 @@ const PARTY = {
   CHALLENGER: 2
 }
 
-contract('GTCR', function(accounts) {
+contract('LightGeneralizedTCR', function(accounts) {
   const governor = accounts[0]
   const requester = accounts[1]
   const challenger = accounts[2]
@@ -33,6 +36,9 @@ contract('GTCR', function(accounts) {
   const clearingMetaEvidence = 'clearingMetaEvidence.json'
 
   let arbitrator
+  let factory
+  let gtcr
+  let implementation
   let MULTIPLIER_DIVISOR
   let submitterTotalCost
   let submissionChallengeTotalCost
@@ -45,27 +51,36 @@ contract('GTCR', function(accounts) {
       { from: governor }
     )
 
+    relay = await RelayMock.new({ from: governor })
+
     await arbitrator.changeArbitrator(arbitrator.address)
     await arbitrator.createDispute(3, arbitratorExtraData, {
       from: other,
       value: arbitrationCost
     }) // Create a dispute so the index in tests will not be a default value.
 
-    gtcr = await GTCR.new(
+    implementation = await GTCR.new() // This contract is going to be used with DELEGATECALL from each GTCR proxy.
+    factory = await LightGTCRFactory.new(implementation.address)
+    await factory.deploy(
       arbitrator.address,
       arbitratorExtraData,
       other, // Temporarily set connectedTCR to 'other' account for test purposes.
       registrationMetaEvidence,
       clearingMetaEvidence,
       governor,
-      submissionBaseDeposit,
-      removalBaseDeposit,
-      submissionChallengeBaseDeposit,
-      removalChallengeBaseDeposit,
+      [
+        submissionBaseDeposit,
+        removalBaseDeposit,
+        submissionChallengeBaseDeposit,
+        removalChallengeBaseDeposit
+      ],
       challengePeriodDuration,
       [sharedStakeMultiplier, winnerStakeMultiplier, loserStakeMultiplier],
+      relay.address,
       { from: governor }
     )
+    const proxyAddress = await factory.instances(new BN(0))
+    gtcr = await GTCR.at(proxyAddress)
 
     MULTIPLIER_DIVISOR = (await gtcr.MULTIPLIER_DIVISOR()).toNumber()
     submitterTotalCost = arbitrationCost + submissionBaseDeposit
@@ -88,50 +103,40 @@ contract('GTCR', function(accounts) {
     assert.equal(await gtcr.sharedStakeMultiplier(), sharedStakeMultiplier)
     assert.equal(await gtcr.winnerStakeMultiplier(), winnerStakeMultiplier)
     assert.equal(await gtcr.loserStakeMultiplier(), loserStakeMultiplier)
+    assert.equal(await gtcr.relayContract(), relay.address)
   })
 
   it('Should set the correct values and fire the event when requesting registration', async () => {
     await expectRevert(
-      gtcr.addItem(
-        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-        { from: requester, value: submitterTotalCost - 1 }
-      ),
+      gtcr.addItem('/ipfs/Qwabdaa', {
+        from: requester,
+        value: submitterTotalCost - 1
+      }),
       'You must fully fund your side.'
     )
 
-    const txAddItem = await gtcr.addItem(
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-      { from: requester, value: submitterTotalCost }
-    )
+    const txAddItem = await gtcr.addItem('/ipfs/Qwabdaa', {
+      from: requester,
+      value: submitterTotalCost
+    })
 
     await expectRevert(
-      gtcr.addItem(
-        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-        { from: requester, value: submitterTotalCost }
-      ),
+      gtcr.addItem('/ipfs/Qwabdaa', {
+        from: requester,
+        value: submitterTotalCost
+      }),
       'Item must be absent to be added.'
     )
 
-    const itemID = await gtcr.itemList(0)
+    const itemID = txAddItem.logs[0].args._itemID
     assert.equal(
       itemID,
-      soliditySha3(
-        '0xffb43c480000000000000000000000000000000000000000000000000000000000002222'
-      ),
+      soliditySha3('/ipfs/Qwabdaa'),
       'Item ID has not been set up properly'
     )
 
     const item = await gtcr.items(itemID)
-    assert.equal(
-      item[0],
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-      'Item data has not been set up properly'
-    )
-    assert.equal(
-      item[1].toNumber(),
-      2,
-      'Item status has not been set up properly'
-    )
+    assert.equal(item.toNumber(), 2, 'Item status has not been set up properly')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(
@@ -175,33 +180,23 @@ contract('GTCR', function(accounts) {
     )
 
     assert.equal(
-      txAddItem.logs[1].event,
-      'ItemStatusChange',
+      txAddItem.logs[2].event,
+      'RequestSubmitted',
       'The event has not been created'
     )
     assert.equal(
-      txAddItem.logs[1].args._itemID,
+      txAddItem.logs[0].args._itemID,
       itemID,
       'The event has wrong item ID'
-    )
-    assert.equal(
-      txAddItem.logs[1].args._requestIndex.toNumber(),
-      0,
-      'The event has wrong request index'
-    )
-    assert.equal(
-      txAddItem.logs[1].args._roundIndex.toNumber(),
-      0,
-      'The event has wrong round index'
     )
   })
 
   it('Should set the correct values and create a dispute after the item is challenged and fire 2 events', async () => {
-    await gtcr.addItem(
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-      { from: requester, value: submitterTotalCost }
-    )
-    const itemID = await gtcr.itemList(0)
+    const tx = await gtcr.addItem('/ipfs/Qwabdaa', {
+      from: requester,
+      value: submitterTotalCost
+    })
+    const itemID = tx.logs[0].args._itemID
 
     await expectRevert(
       gtcr.challengeRequest(itemID, 'Evidence.json', {
@@ -234,14 +229,14 @@ contract('GTCR', function(accounts) {
       'Number of rounds should have been incremented'
     )
 
-    const arbitratorDisputeIDToItem = await gtcr.arbitratorDisputeIDToItem(
+    const arbitratorDisputeIDToItemID = await gtcr.arbitratorDisputeIDToItemID(
       arbitrator.address,
       1
     )
     assert.equal(
-      arbitratorDisputeIDToItem,
+      arbitratorDisputeIDToItemID,
       itemID,
-      'Incorrect arbitratorDisputeIDToItem value'
+      'Incorrect arbitratorDisputeIDToItemID value'
     )
 
     const round = await gtcr.getRoundInfo(itemID, 0, 0)
@@ -271,35 +266,9 @@ contract('GTCR', function(accounts) {
 
     const evidenceGroupID = parseInt(soliditySha3(itemID, 0), 16)
     assert.equal(
-      txChallenge.logs[0].event,
+      txChallenge.logs[1].event,
       'Dispute',
       'The event Dispute has not been created'
-    )
-    assert.equal(
-      txChallenge.logs[0].args._arbitrator,
-      arbitrator.address,
-      'The event has wrong arbitrator'
-    )
-    assert.equal(
-      txChallenge.logs[0].args._disputeID.toNumber(),
-      1,
-      'The event has wrong dispute ID'
-    )
-    assert.equal(
-      txChallenge.logs[0].args._metaEvidenceID.toNumber(),
-      0,
-      'The event has wrong metaevidence ID'
-    )
-    assert.equal(
-      txChallenge.logs[0].args._evidenceGroupID,
-      evidenceGroupID,
-      'The event has wrong evidenceGroup ID'
-    )
-
-    assert.equal(
-      txChallenge.logs[1].event,
-      'Evidence',
-      'The event Evidence has not been created'
     )
     assert.equal(
       txChallenge.logs[1].args._arbitrator,
@@ -307,17 +276,43 @@ contract('GTCR', function(accounts) {
       'The event has wrong arbitrator'
     )
     assert.equal(
+      txChallenge.logs[1].args._disputeID.toNumber(),
+      1,
+      'The event has wrong dispute ID'
+    )
+    assert.equal(
+      txChallenge.logs[1].args._metaEvidenceID.toNumber(),
+      0,
+      'The event has wrong metaevidence ID'
+    )
+    assert.equal(
       txChallenge.logs[1].args._evidenceGroupID,
       evidenceGroupID,
       'The event has wrong evidenceGroup ID'
     )
+
     assert.equal(
-      txChallenge.logs[1].args._party,
+      txChallenge.logs[2].event,
+      'Evidence',
+      'The event Evidence has not been created'
+    )
+    assert.equal(
+      txChallenge.logs[2].args._arbitrator,
+      arbitrator.address,
+      'The event has wrong arbitrator'
+    )
+    assert.equal(
+      txChallenge.logs[2].args._evidenceGroupID,
+      evidenceGroupID,
+      'The event has wrong evidenceGroup ID'
+    )
+    assert.equal(
+      txChallenge.logs[2].args._party,
       challenger,
       'The event has wrong party'
     )
     assert.equal(
-      txChallenge.logs[1].args._evidence,
+      txChallenge.logs[2].args._evidence,
       'Evidence.json',
       'The event has wrong evidence'
     )
@@ -338,11 +333,11 @@ contract('GTCR', function(accounts) {
   })
 
   it('Should not be possibe to challenge after timeout', async () => {
-    await gtcr.addItem('0xaabbaa', {
+    const tx = await gtcr.addItem('0xaabbaa', {
       from: requester,
       value: submitterTotalCost
     })
-    const itemID = await gtcr.itemList(0)
+    const itemID = tx.logs[0].args._itemID
 
     await time.increase(challengePeriodDuration + 1)
 
@@ -356,11 +351,11 @@ contract('GTCR', function(accounts) {
   })
 
   it('Should successfully execute the request if it has not been challenged and fire the event', async () => {
-    await gtcr.addItem(
-      '0xffb43c480000000000000000000000000000000000000000000000000000000000002222',
-      { from: requester, value: submitterTotalCost }
-    )
-    const itemID = await gtcr.itemList(0)
+    const tx = await gtcr.addItem('/ipfs/Qwabdaa', {
+      from: requester,
+      value: submitterTotalCost
+    })
+    const itemID = tx.logs[0].args._itemID
     const oldBalance = await web3.eth.getBalance(requester)
 
     await expectRevert(
@@ -373,7 +368,7 @@ contract('GTCR', function(accounts) {
     const newBalance = await web3.eth.getBalance(requester)
 
     const item = await gtcr.items(itemID)
-    assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
+    assert.equal(item.toNumber(), 1, 'Item should have status Registered')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'Request should be resolved')
@@ -387,16 +382,6 @@ contract('GTCR', function(accounts) {
       txExecute.logs[0].args._itemID,
       itemID,
       'The event has wrong item ID'
-    )
-    assert.equal(
-      txExecute.logs[0].args._requestIndex.toNumber(),
-      0,
-      'The event has wrong request index'
-    )
-    assert.equal(
-      txExecute.logs[0].args._roundIndex.toNumber(),
-      0,
-      'The event has wrong round index'
     )
 
     assert(
@@ -414,8 +399,11 @@ contract('GTCR', function(accounts) {
 
   it('Should demand correct appeal fees and register that appeal fee has been paid', async () => {
     let roundInfo
-    await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
-    const itemID = await gtcr.itemList(0)
+    const tx = await gtcr.addItem('0x1111', {
+      from: requester,
+      value: submitterTotalCost
+    })
+    const itemID = tx.logs[0].args._itemID
     await expectRevert(
       gtcr.fundAppeal(itemID, 2, { from: challenger, value: 2e18 }),
       'A dispute must have been raised to fund an appeal.'
@@ -539,8 +527,11 @@ contract('GTCR', function(accounts) {
   })
 
   it('Should not be possible for loser to fund appeal if first half of appeal period has passed', async () => {
-    await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
-    const itemID = await gtcr.itemList(0)
+    const tx = await gtcr.addItem('0x1111', {
+      from: requester,
+      value: submitterTotalCost
+    })
+    const itemID = tx.logs[1].args._itemID
 
     await gtcr.challengeRequest(itemID, 'aaa', {
       from: challenger,
@@ -560,8 +551,11 @@ contract('GTCR', function(accounts) {
   })
 
   it('Should not be possible for winner to fund appeal if appeal period has passed', async () => {
-    await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
-    const itemID = await gtcr.itemList(0)
+    const tx = await gtcr.addItem('0x1111', {
+      from: requester,
+      value: submitterTotalCost
+    })
+    const itemID = tx.logs[1].args._itemID
 
     await gtcr.challengeRequest(itemID, 'aaa', {
       from: challenger,
@@ -585,8 +579,11 @@ contract('GTCR', function(accounts) {
     const oldBalanceRequester = await web3.eth.getBalance(requester)
     const oldBalanceChallenger = await web3.eth.getBalance(challenger)
 
-    await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
-    const itemID = await gtcr.itemList(0)
+    const tx = await gtcr.addItem('0x1111', {
+      from: requester,
+      value: submitterTotalCost
+    })
+    const itemID = tx.logs[0].args._itemID
     const addTxCost = new BN(oldBalanceRequester)
       .sub(new BN(await web3.eth.getBalance(requester)))
       .sub(new BN(submitterTotalCost))
@@ -621,7 +618,7 @@ contract('GTCR', function(accounts) {
     await arbitrator.giveRuling(1, PARTY.NONE)
 
     const item = await gtcr.items(itemID)
-    assert.equal(item[1].toNumber(), 0, 'Item should have status Absent')
+    assert.equal(item.toNumber(), 0, 'Item should have status Absent')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'The request should be resolved')
@@ -675,8 +672,11 @@ contract('GTCR', function(accounts) {
 
   it('Should paid to all parties correctly and set correct values when requester wins', async () => {
     const initialRequesterBalance = await web3.eth.getBalance(requester)
-    await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
-    const itemID = await gtcr.itemList(0)
+    const tx = await gtcr.addItem('0x1111', {
+      from: requester,
+      value: submitterTotalCost
+    })
+    const itemID = tx.logs[1].args._itemID
     const addTxCost = new BN(initialRequesterBalance)
       .sub(new BN(await web3.eth.getBalance(requester)))
       .sub(new BN(submitterTotalCost))
@@ -693,7 +693,7 @@ contract('GTCR', function(accounts) {
     await arbitrator.giveRuling(1, PARTY.REQUESTER)
 
     const item = await gtcr.items(itemID)
-    assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
+    assert.equal(item.toNumber(), 1, 'Item should have status Registered')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'The request should be resolved')
@@ -719,11 +719,11 @@ contract('GTCR', function(accounts) {
   })
 
   it('Should paid to all parties correctly and set correct values when challenger wins', async () => {
-    await gtcr.addItem('0x1111224411', {
+    const tx = await gtcr.addItem('0x1111224411', {
       from: requester,
       value: submitterTotalCost
     })
-    const itemID = await gtcr.itemList(0)
+    const itemID = tx.logs[1].args._itemID
 
     const initialChallengerBalance = await web3.eth.getBalance(challenger)
     await gtcr.challengeRequest(itemID, 'testEvidence11', {
@@ -741,7 +741,7 @@ contract('GTCR', function(accounts) {
     await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     const item = await gtcr.items(itemID)
-    assert.equal(item[1].toNumber(), 0, 'Item should have status Absent')
+    assert.equal(item.toNumber(), 0, 'Item should have status Absent')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'The request should be resolved')
@@ -768,11 +768,12 @@ contract('GTCR', function(accounts) {
 
   it('Should change the ruling if the loser paid appeal fee while winner did not', async () => {
     const initialRequesterBalance = await web3.eth.getBalance(requester)
-    await gtcr.addItem(
+    const tx = await gtcr.addItem(
       '0x1111224411ffaa2eaf1111224411ffaa2eaf1111224411ffaa2eaf',
       { from: requester, value: submitterTotalCost }
     )
-    const itemID = await gtcr.itemList(0)
+    const itemID = tx.logs[1].args._itemID
+
     const addTxCost = new BN(initialRequesterBalance)
       .sub(new BN(await web3.eth.getBalance(requester)))
       .sub(new BN(submitterTotalCost))
@@ -806,7 +807,7 @@ contract('GTCR', function(accounts) {
     await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     const item = await gtcr.items(itemID)
-    assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
+    assert.equal(item.toNumber(), 1, 'Item should have status Registered')
 
     const request = await gtcr.getRequestInfo(itemID, 0)
     assert.equal(request[3], true, 'The request should be resolved')
@@ -833,8 +834,11 @@ contract('GTCR', function(accounts) {
   })
 
   it('Should withdraw correct fees if dispute had winner/loser', async () => {
-    await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
-    const itemID = await gtcr.itemList(0)
+    const tx = await gtcr.addItem('0x1111', {
+      from: requester,
+      value: submitterTotalCost
+    })
+    const itemID = tx.logs[1].args._itemID
 
     await gtcr.challengeRequest(itemID, 'aaa', {
       from: challenger,
@@ -933,8 +937,11 @@ contract('GTCR', function(accounts) {
   })
 
   it('Should withdraw correct fees if arbitrator refused to arbitrate', async () => {
-    await gtcr.addItem('0x1111', { from: requester, value: submitterTotalCost })
-    const itemID = await gtcr.itemList(0)
+    const tx = await gtcr.addItem('0x1111', {
+      from: requester,
+      value: submitterTotalCost
+    })
+    const itemID = tx.logs[1].args._itemID
 
     await gtcr.challengeRequest(itemID, 'aaa', {
       from: challenger,
@@ -1002,11 +1009,12 @@ contract('GTCR', function(accounts) {
 
   it('Check various cases of status requirements and the removing request', async () => {
     // 1st request.
-    await gtcr.addItem('0xaabbaa', {
+    const tx = await gtcr.addItem('0xaabbaa', {
       from: requester,
       value: submitterTotalCost
     })
-    const itemID = await gtcr.itemList(0)
+
+    const itemID = tx.logs[0].args._itemID
     await time.increase(challengePeriodDuration + 1)
     await gtcr.executeRequest(itemID, { from: governor })
 
@@ -1027,7 +1035,7 @@ contract('GTCR', function(accounts) {
     await arbitrator.giveRuling(1, PARTY.CHALLENGER)
 
     item = await gtcr.getItemInfo(itemID)
-    assert.equal(item[1].toNumber(), 1, 'Item should have status Registered')
+    assert.equal(item[0].toNumber(), 1, 'Item should have status Registered')
 
     // 3th request.
     await gtcr.removeItem(itemID, '', {
@@ -1038,16 +1046,14 @@ contract('GTCR', function(accounts) {
 
     await gtcr.executeRequest(itemID, { from: governor })
     item = await gtcr.getItemInfo(itemID)
-    assert.equal(item[1].toNumber(), 0, 'Item should have status Absent')
+    assert.equal(item[0].toNumber(), 0, 'Item should have status Absent')
     assert.equal(
-      item[2].toNumber(),
+      item[1].toNumber(),
       3,
       'The total number of requests is incorrect'
     )
 
     await gtcr.addItem('0x1221', { from: requester, value: submitterTotalCost })
-    const count = await gtcr.itemCount()
-    assert.equal(count.toNumber(), 2, 'The total number of items is incorrect')
   })
 
   it('Only the governor should be allowed to change state variables', async () => {
@@ -1191,14 +1197,25 @@ contract('GTCR', function(accounts) {
       1,
       'Incorrect metaEvidenceUpdates value'
     )
+
+    await expectRevert(
+      gtcr.changeRelayContract(other, { from: other }),
+      'The caller must be the governor.'
+    )
+    await gtcr.changeRelayContract(other, { from: governor2 })
+    assert.equal(
+      await gtcr.relayContract(),
+      other,
+      'Incorrect relayContract address'
+    )
   })
 
   it('Should not be possibe to submit evidence to resolved dispute', async () => {
-    await gtcr.addItem('0xaabbaa', {
+    const tx = await gtcr.addItem('0xaabbaa', {
       from: requester,
       value: submitterTotalCost
     })
-    const itemID = await gtcr.itemList(0)
+    const itemID = tx.logs[1].args._itemID
 
     await time.increase(challengePeriodDuration + 1)
     await gtcr.executeRequest(itemID, { from: governor })
@@ -1206,6 +1223,50 @@ contract('GTCR', function(accounts) {
     await expectRevert(
       gtcr.submitEvidence(itemID, 'Evidence2', { from: other }),
       'The dispute must not already be resolved.'
+    )
+  })
+
+  it('Should correctly add an item directly', async () => {
+    await expectRevert(
+      gtcr.addItemDirectly('/ipfs/Qwabdaa', { from: other }),
+      'The caller must be the relay.'
+    )
+
+    await relay.add(gtcr.address, '/ipfs/Qwabdaa')
+    const itemID = soliditySha3('/ipfs/Qwabdaa')
+    assert.equal(
+      itemID,
+      soliditySha3('/ipfs/Qwabdaa'),
+      'Item ID has not been set up properly'
+    )
+
+    const item = await gtcr.getItemInfo(itemID)
+    assert.equal(item[0].toNumber(), 1, 'Item status should be Registered')
+
+    await expectRevert(
+      relay.add(gtcr.address, '/ipfs/Qwabdaa'),
+      'Item must be absent to be added.'
+    )
+  })
+
+  it('Should correctly remove an item directly', async () => {
+    await relay.add(gtcr.address, '/ipfs/Qwadddggbdaa')
+    const itemID = soliditySha3('/ipfs/Qwadddggbdaa')
+
+    await expectRevert(
+      gtcr.removeItemDirectly(itemID, { from: other }),
+      'The caller must be the relay.'
+    )
+
+    await relay.remove(gtcr.address, itemID)
+
+    const item = await gtcr.getItemInfo(itemID)
+    assert.equal(item[0].toNumber(), 0, 'Item status should be Absent')
+    assert.equal(item[1].toNumber(), 0, 'Item has incorrect number of requests') // Direct adds don't generate requests.
+
+    await expectRevert(
+      relay.remove(gtcr.address, itemID),
+      'Item must be registered to be removed.'
     )
   })
 })

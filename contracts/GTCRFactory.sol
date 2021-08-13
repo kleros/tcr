@@ -1,6 +1,6 @@
 /**
  *  @authors: [@mtsalenc]
- *  @reviewers: []
+ *  @reviewers: [@clesaege, @unknownunknown1, @ferittuncer, @satello, @MerlinEgalite]
  *  @auditors: []
  *  @bounties: []
  *  @deployments: []
@@ -25,15 +25,6 @@ contract GTCRFactory {
     event NewGTCR(GeneralizedTCR indexed _address);
 
     GeneralizedTCR[] public instances;
-    address public GTCR;
-
-    /**
-     *  @dev Constructor.
-     *  @param _GTCR Address of the generalized TCR contract that is going to be used for each new deployment.
-     */
-    constructor(address _GTCR) public {
-        GTCR = _GTCR;
-    }
 
     /**
      *  @dev Deploy the arbitrable curated registry.
@@ -43,17 +34,15 @@ contract GTCRFactory {
      *  @param _registrationMetaEvidence The URI of the meta evidence object for registration requests.
      *  @param _clearingMetaEvidence The URI of the meta evidence object for clearing requests.
      *  @param _governor The trusted governor of this contract.
-     *  @param _baseDeposits The base deposits for requests/challenges as follows:
-     *  - The base deposit to submit an item.
-     *  - The base deposit to remove an item.
-     *  - The base deposit to challenge a submission.
-     *  - The base deposit to challenge a removal request.
+     *  @param _submissionBaseDeposit The base deposit to submit an item.
+     *  @param _removalBaseDeposit The base deposit to remove an item.
+     *  @param _submissionChallengeBaseDeposit The base deposit to challenge a submission.
+     *  @param _removalChallengeBaseDeposit The base deposit to challenge a removal request.
      *  @param _challengePeriodDuration The time in seconds parties have to challenge a request.
      *  @param _stakeMultipliers Multipliers of the arbitration cost in basis points (see GeneralizedTCR MULTIPLIER_DIVISOR) as follows:
      *  - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate).
      *  - The multiplier applied to the winner's fee stake for an appeal round.
      *  - The multiplier applied to the loser's fee stake for an appeal round.
-     *  @param _relayContract The address of the relay contract to add/remove items directly.
      */
     function deploy(
         IArbitrator _arbitrator,
@@ -62,43 +51,29 @@ contract GTCRFactory {
         string memory _registrationMetaEvidence,
         string memory _clearingMetaEvidence,
         address _governor,
-        uint[4] memory _baseDeposits,
+        uint _submissionBaseDeposit,
+        uint _removalBaseDeposit,
+        uint _submissionChallengeBaseDeposit,
+        uint _removalChallengeBaseDeposit,
         uint _challengePeriodDuration,
-        uint[3] memory _stakeMultipliers,
-        address _relayContract
+        uint[3] memory _stakeMultipliers
     ) public {
-        GeneralizedTCR instance = clone(GTCR);
-        instance.initialize(
+        GeneralizedTCR instance = new GeneralizedTCR(
                 _arbitrator,
                 _arbitratorExtraData,
                 _connectedTCR,
                 _registrationMetaEvidence,
                 _clearingMetaEvidence,
                 _governor,
-                _baseDeposits,
+                _submissionBaseDeposit,
+                _removalBaseDeposit,
+                _submissionChallengeBaseDeposit,
+                _removalChallengeBaseDeposit,
                 _challengePeriodDuration,
-                _stakeMultipliers,
-                _relayContract
+                _stakeMultipliers
         );
         instances.push(instance);
         emit NewGTCR(instance);
-    }
-
-    /**
-     * @notice Adaptation of @openzeppelin/contracts/proxy/Clones.sol.
-     * @dev Deploys and returns the address of a clone that mimics the behaviour of `GTCR`.
-     * @param _implementation Address of the contract to clone.
-     * This function uses the create opcode, which should never revert.
-     */
-    function clone(address _implementation) internal returns (GeneralizedTCR instance) {
-        assembly {
-            let ptr := mload(0x40)
-            mstore(ptr, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
-            mstore(add(ptr, 0x14), shl(0x60, _implementation))
-            mstore(add(ptr, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
-            instance := create(0, ptr, 0x37)
-        }
-        require(instance != GeneralizedTCR(0), "ERC1167: create failed");
     }
 
     /**
