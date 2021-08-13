@@ -1,6 +1,6 @@
 /**
  *  @authors: [@mtsalenc]
- *  @reviewers: [@clesaege, @unknownunknown1, @ferittuncer, @satello, @MerlinEgalite]
+ *  @reviewers: []
  *  @auditors: []
  *  @bounties: []
  *  @deployments: []
@@ -86,7 +86,7 @@ contract GTCRFactory {
 
     /**
      * @notice Adaptation of @openzeppelin/contracts/proxy/Clones.sol.
-     * @dev Deploys and returns the adcdress of a clone that mimics the behaviour of `GTCR`.
+     * @dev Deploys and returns the address of a clone that mimics the behaviour of `GTCR`.
      * @param _implementation Address of the contract to clone.
      * This function uses the create opcode, which should never revert.
      */
