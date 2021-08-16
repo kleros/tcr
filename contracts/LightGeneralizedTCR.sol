@@ -761,6 +761,11 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         request.arbitratorExtraData = arbitratorExtraData;
 
         Round storage round = request.rounds[request.rounds.length++];
+        uint256 evidenceGroupID = uint256(
+            keccak256(abi.encodePacked(_itemID, item.requests.length - 1))
+        );
+        emit RequestSubmitted(_itemID, evidenceGroupID);
+
         contribute(
             _itemID,
             round,
@@ -770,12 +775,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             totalCost
         );
         round.hasPaid[uint256(Party.Requester)] = true;
-
-        uint256 evidenceGroupID = uint256(
-            keccak256(abi.encodePacked(_itemID, item.requests.length - 1))
-        );
-
-        emit RequestSubmitted(_itemID, evidenceGroupID);
     }
 
     /** @dev Returns the contribution value and remainder from available ETH and required amount.

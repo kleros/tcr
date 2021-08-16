@@ -180,7 +180,7 @@ contract('LightGeneralizedTCR', function(accounts) {
     )
 
     assert.equal(
-      txAddItem.logs[2].event,
+      txAddItem.logs[1].event,
       'RequestSubmitted',
       'The event has not been created'
     )
