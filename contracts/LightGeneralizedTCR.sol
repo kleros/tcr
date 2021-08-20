@@ -742,7 +742,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         Item storage item = items[_itemID];
         Request storage request = item.requests[item.requests.length++];
         uint256 arbitrationCost = arbitrator.arbitrationCost(
-            request.arbitratorExtraData
+            arbitratorExtraData
         );
         uint256 totalCost = arbitrationCost.addCap(_baseDeposit);
         require(msg.value >= totalCost, "You must fully fund your side.");
