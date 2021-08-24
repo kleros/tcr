@@ -115,8 +115,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     /**
      *  @dev Emitted when a party makes a request, raises a dispute or when a request is resolved.
      *  @param _itemID The ID of the affected item.
+     *  @param _updatedDirectly Whether this was emitted in either `addItemDirectly` or `removeItemDirectly`. This is used in the subgraph.
      */
-    event ItemStatusChange(bytes32 indexed _itemID);
+    event ItemStatusChange(bytes32 indexed _itemID, bool _updatedDirectly);
 
     /**
      *  @dev Emitted when someone submits an item for the first time.
@@ -241,7 +242,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         item.status = Status.Registered;
 
-        emit ItemStatusChange(itemID);
+        emit ItemStatusChange(itemID, true);
     }
 
     /** @dev Directly remove an item from the list bypassing request-challenge. Can only be used by the relay contract.
@@ -256,7 +257,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         item.status = Status.Absent;
 
-        emit ItemStatusChange(_itemID);
+        emit ItemStatusChange(_itemID, true);
     }
 
     /** @dev Submit a request to register an item. Accepts enough ETH to cover the deposit, reimburses the rest.
@@ -540,7 +541,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         else revert("There must be a request.");
 
         request.resolved = true;
-        emit ItemStatusChange(_itemID);
+        emit ItemStatusChange(_itemID, false);
 
         withdrawFeesAndRewards(
             request.parties[uint256(Party.Requester)],
@@ -857,7 +858,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         request.resolved = true;
         request.ruling = Party(_ruling);
 
-        emit ItemStatusChange(itemID);
+        emit ItemStatusChange(itemID, false);
 
         // Automatically withdraw first deposits and reimbursements (first round only).
         if (winner == Party.None) {
