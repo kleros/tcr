@@ -52,5 +52,9 @@
     "solidity-bytes-utils": "^0.0.8",
     "solidity-rlp": "^2.0.1",
     "web3-utils": "^1.2.1"
+  },
+  "volta": {
+    "node": "10.24.1",
+    "yarn": "1.22.11"
   }
 }
