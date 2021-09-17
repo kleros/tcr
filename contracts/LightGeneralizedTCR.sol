@@ -20,6 +20,7 @@ import {CappedMath} from "./utils/CappedMath.sol";
 /**
  *  @title LightGeneralizedTCR
  *  This contract is a curated registry for any types of items. Just like a TCR contract it features the request-challenge protocol and appeal fees crowdfunding.
+ *  The difference between LightGeneralizedTCR and GeneralizedTCR is that instead of storing item data in storage and event logs, LightCurate only stores the URI of item in the logs. This makes it considerably cheaper to use and allows more flexibility with the item columns.
  */
 contract LightGeneralizedTCR is IArbitrable, IEvidence {
     using CappedMath for uint256;
@@ -137,7 +138,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      *  @dev Emitted when a party contributes to an appeal.
      *  @param _itemID The ID of the item.
      *  @param _contributor The address making the contribution.
-     *  @param _contribution How much was of the contribution was accepted.
+     *  @param _contribution How much of the contribution was accepted.
      *  @param _side The party receiving the contribution.
      */
     event Contribution(
@@ -154,7 +155,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
     /** @dev Emitted when someone withdraws more than 0 rewards.
      *  @param _beneficiary The address that made contributions to a request.
-     *  @param _itemID The ID of the item submission to withdraw.
+     *  @param _itemID The ID of the item submission to withdraw from.
      *  @param _request The request from which to withdraw.
      *  @param _round The round from which to withdraw.
      */
@@ -238,6 +239,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             "Item must be absent to be added."
         );
 
+        // Note that if the item is added directly once, the next time it is added it will emit this event again.
         if (item.requests.length == 0) emit NewItem(itemID, _item);
 
         item.status = Status.Registered;
@@ -271,6 +273,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             "Item must be absent to be added."
         );
 
+        // Note that if the item was added previously using `addItemDirectly`, the event will emit again here.
         if (item.requests.length == 0) emit NewItem(itemID, _item);
 
         requestStatusChange(itemID, submissionBaseDeposit);
@@ -293,9 +296,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         // Emit evidence if it was provided.
         if (bytes(_evidence).length > 0) {
             // Using `length` instead of `length - 1` because a new request will be added on requestStatusChange().
-            uint256 requestIndex = item.requests.length;
             uint256 evidenceGroupID = uint256(
-                keccak256(abi.encodePacked(_itemID, requestIndex))
+                keccak256(abi.encodePacked(_itemID, item.requests.length))
             );
 
             emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
