@@ -273,7 +273,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             "Item must be absent to be added."
         );
 
-        // Note that if the item was added previously using `addItemDirectly`, the event will emit again here.
+        // Note that if the item was added previously using `addItemDirectly`, the event will be emitted again here.
         if (item.requests.length == 0) emit NewItem(itemID, _item);
 
         requestStatusChange(itemID, submissionBaseDeposit);
