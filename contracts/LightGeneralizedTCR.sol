@@ -77,7 +77,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     IArbitrator public arbitrator; // The arbitrator contract.
     bytes public arbitratorExtraData; // Extra data for the arbitrator contract.
 
-    address public relayContract; // The contract that is used to add or remove items directly to speed up the interchain communication.
+    address public relayerContract; // The contract that is used to add or remove items directly to speed up the interchain communication.
 
     uint256 public constant RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
 
@@ -106,8 +106,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         _;
     }
 
-    modifier onlyRelay() {
-        require(msg.sender == relayContract, "The caller must be the relay.");
+    modifier onlyRelayer() {
+        require(msg.sender == relayerContract, "The caller must be the relay.");
         _;
     }
 
@@ -124,8 +124,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      *  @dev Emitted when someone submits an item for the first time.
      *  @param _itemID The ID of the new item.
      *  @param _data The item data URI.
+     *  @param _addedDirectly Whether the item was added via `addItemDirectly`.
      */
-    event NewItem(bytes32 indexed _itemID, string _data);
+    event NewItem(bytes32 indexed _itemID, string _data, bool _addedDirectly);
 
     /**
      *  @dev Emitted when someone submits a request.
@@ -158,12 +159,14 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      *  @param _itemID The ID of the item submission to withdraw from.
      *  @param _request The request from which to withdraw.
      *  @param _round The round from which to withdraw.
+     *  @param _reward The amount withdrawn.
      */
     event RewardWithdrawn(
         address indexed _beneficiary,
         bytes32 indexed _itemID,
         uint256 _request,
-        uint256 _round
+        uint256 _round,
+        uint256 _reward
     );
 
     constructor() public {}
@@ -186,7 +189,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      *  - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round (e.g. when the arbitrator refused to arbitrate).
      *  - The multiplier applied to the winner's fee stake for the subsequent round.
      *  - The multiplier applied to the loser's fee stake for the subsequent round.
-     *  @param _relayContract The address of the relay contract to add/remove items directly.
+     *  @param _relayerContract The address of the relay contract to add/remove items directly.
      */
     function initialize(
         IArbitrator _arbitrator,
@@ -198,7 +201,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256[4] memory _baseDeposits,
         uint256 _challengePeriodDuration,
         uint256[3] memory _stakeMultipliers,
-        address _relayContract
+        address _relayerContract
     ) public {
         require(!initialized, "Already initialized.");
 
@@ -217,7 +220,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         sharedStakeMultiplier = _stakeMultipliers[0];
         winnerStakeMultiplier = _stakeMultipliers[1];
         loserStakeMultiplier = _stakeMultipliers[2];
-        relayContract = _relayContract;
+        relayerContract = _relayerContract;
 
         initialized = true;
     }
@@ -231,7 +234,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     /** @dev Directly add an item to the list bypassing request-challenge. Can only be used by the relay contract.
      *  @param _item The URI to the item data.
      */
-    function addItemDirectly(string calldata _item) external onlyRelay {
+    function addItemDirectly(string calldata _item) external onlyRelayer {
         bytes32 itemID = keccak256(abi.encodePacked(_item));
         Item storage item = items[itemID];
         require(
@@ -240,7 +243,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         );
 
         // Note that if the item is added directly once, the next time it is added it will emit this event again.
-        if (item.requests.length == 0) emit NewItem(itemID, _item);
+        if (item.requests.length == 0) emit NewItem(itemID, _item, true);
 
         item.status = Status.Registered;
 
@@ -250,7 +253,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     /** @dev Directly remove an item from the list bypassing request-challenge. Can only be used by the relay contract.
      *  @param _itemID The ID of the item to remove.
      */
-    function removeItemDirectly(bytes32 _itemID) external onlyRelay {
+    function removeItemDirectly(bytes32 _itemID) external onlyRelayer {
         Item storage item = items[_itemID];
         require(
             item.status == Status.Registered,
@@ -274,7 +277,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         );
 
         // Note that if the item was added previously using `addItemDirectly`, the event will be emitted again here.
-        if (item.requests.length == 0) emit NewItem(itemID, _item);
+        if (item.requests.length == 0) emit NewItem(itemID, _item, false);
 
         requestStatusChange(itemID, submissionBaseDeposit);
     }
@@ -414,6 +417,11 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             now >= appealPeriodStart && now < appealPeriodEnd,
             "Contributions must be made within the appeal period."
         );
+        Round storage round = request.rounds[request.rounds.length - 1];
+        require(
+            !round.hasPaid[uint256(_side)],
+            "Side already fully funded."
+        );
 
         /* solium-disable indentation */
         uint256 multiplier;
@@ -428,14 +436,13 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             } else {
                 multiplier = loserStakeMultiplier;
                 require(
-                    block.timestamp < (appealPeriodStart + appealPeriodEnd) / 2,
+                    now < (appealPeriodStart + appealPeriodEnd) / 2,
                     "The loser must contribute during the first half of the appeal period."
                 );
             }
         }
         /* solium-enable indentation */
 
-        Round storage round = request.rounds[request.rounds.length - 1];
         uint256 appealCost = request.arbitrator.appealCost(
             request.disputeID,
             request.arbitratorExtraData
@@ -518,10 +525,10 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         round.contributions[_beneficiary][uint256(Party.Requester)] = 0;
         round.contributions[_beneficiary][uint256(Party.Challenger)] = 0;
 
-        if (reward > 0) _beneficiary.send(reward);
-
-        if (reward > 0)
-            emit RewardWithdrawn(_beneficiary, _itemID, _request, _round);
+        if (reward > 0) {
+            _beneficiary.send(reward);
+            emit RewardWithdrawn(_beneficiary, _itemID, _request, _round, reward);
+        }
     }
 
     /** @dev Executes an unchallenged request if the challenge period has passed.
@@ -559,19 +566,19 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      *  @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Refused to arbitrate".
      */
     function rule(uint256 _disputeID, uint256 _ruling) public {
+        require(_ruling <= RULING_OPTIONS, "Invalid ruling option");
         Party resultRuling = Party(_ruling);
         bytes32 itemID = arbitratorDisputeIDToItemID[msg.sender][_disputeID];
         Item storage item = items[itemID];
 
         Request storage request = item.requests[item.requests.length - 1];
-        Round storage round = request.rounds[request.rounds.length - 1];
-        require(_ruling <= RULING_OPTIONS, "Invalid ruling option");
         require(
             address(request.arbitrator) == msg.sender,
             "Only the arbitrator can give a ruling"
         );
         require(!request.resolved, "The request must not be resolved.");
 
+        Round storage round = request.rounds[request.rounds.length - 1];
         // The ruling is inverted if the loser paid its fees.
         if (round.hasPaid[uint256(Party.Requester)])
             // If one side paid its fees, the ruling is in its favor. Note that if the other side had also paid, an appeal would have been created.
@@ -612,7 +619,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     /** @dev Change the duration of the challenge period.
      *  @param _challengePeriodDuration The new duration of the challenge period.
      */
-    function changeTimeToChallenge(uint256 _challengePeriodDuration)
+    function changeChallengePeriodDuration(uint256 _challengePeriodDuration)
         external
         onlyGovernor
     {
@@ -727,10 +734,10 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     }
 
     /** @dev Change the address of the relay contract.
-     *  @param _relayContract The new address of the relay contract.
+     *  @param _relayerContract The new address of the relay contract.
      */
-    function changeRelayContract(address _relayContract) external onlyGovernor {
-        relayContract = _relayContract;
+    function changeRelayerContract(address _relayerContract) external onlyGovernor {
+        relayerContract = _relayerContract;
     }
 
     /* Internal */

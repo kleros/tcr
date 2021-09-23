@@ -103,7 +103,7 @@ contract('LightGeneralizedTCR', function(accounts) {
     assert.equal(await gtcr.sharedStakeMultiplier(), sharedStakeMultiplier)
     assert.equal(await gtcr.winnerStakeMultiplier(), winnerStakeMultiplier)
     assert.equal(await gtcr.loserStakeMultiplier(), loserStakeMultiplier)
-    assert.equal(await gtcr.relayContract(), relay.address)
+    assert.equal(await gtcr.relayerContract(), relay.address)
   })
 
   it('Should set the correct values and fire the event when requesting registration', async () => {
@@ -428,8 +428,11 @@ contract('LightGeneralizedTCR', function(accounts) {
     // Deliberately overpay to check that only required fee amount will be registered.
     await gtcr.fundAppeal(itemID, 1, { from: requester, value: 3e18 })
 
-    // Fund appeal again to see if it doesn't cause anything.
-    await gtcr.fundAppeal(itemID, 1, { from: requester, value: 1e18 })
+    // Funding a fully funded side should revert the transaction for better UX.
+    await expectRevert(
+      gtcr.fundAppeal(itemID, 1, { from: requester, value: 1e18 }),
+      'Side already fully funded.'
+    )
 
     roundInfo = await gtcr.getRoundInfo(itemID, 0, 1)
 
@@ -1058,10 +1061,10 @@ contract('LightGeneralizedTCR', function(accounts) {
 
   it('Only the governor should be allowed to change state variables', async () => {
     await expectRevert(
-      gtcr.changeTimeToChallenge(11, { from: other }),
+      gtcr.changeChallengePeriodDuration(11, { from: other }),
       'The caller must be the governor.'
     )
-    await gtcr.changeTimeToChallenge(11, { from: governor })
+    await gtcr.changeChallengePeriodDuration(11, { from: governor })
     assert.equal(
       (await gtcr.challengePeriodDuration()).toNumber(),
       11,
@@ -1199,14 +1202,14 @@ contract('LightGeneralizedTCR', function(accounts) {
     )
 
     await expectRevert(
-      gtcr.changeRelayContract(other, { from: other }),
+      gtcr.changeRelayerContract(other, { from: other }),
       'The caller must be the governor.'
     )
-    await gtcr.changeRelayContract(other, { from: governor2 })
+    await gtcr.changeRelayerContract(other, { from: governor2 })
     assert.equal(
-      await gtcr.relayContract(),
+      await gtcr.relayerContract(),
       other,
-      'Incorrect relayContract address'
+      'Incorrect relayerContract address'
     )
   })
 
