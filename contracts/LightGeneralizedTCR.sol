@@ -53,15 +53,15 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     // - 2: for `Party.Challenger`.
     struct Request {
         bool disputed; // True if a dispute was raised.
-        uint256 disputeID; // ID of the dispute, if any.
-        uint256 submissionTime; // Time when the request was made. Used to track when the challenge period ends.
         bool resolved; // True if the request was executed and/or any raised disputes were resolved.
+        Party ruling; // The final ruling given, if any.
+        uint72 submissionTime; // Time when the request was made. Used to track when the challenge period ends.
+        uint128 disputeID; // ID of the dispute, if any.
+        uint128 metaEvidenceID; // The meta evidence to be used in a dispute for this case.
         address payable[3] parties; // Address of requester and challenger, if any, in the form parties[party].
         Round[] rounds; // Tracks each round of a dispute in the form rounds[roundID].
-        Party ruling; // The final ruling given, if any.
         IArbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
-        uint256 metaEvidenceID; // The meta evidence to be used in a dispute for this case.
     }
 
     struct Round {
@@ -359,9 +359,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         round.hasPaid[uint256(Party.Challenger)] = true;
 
         // Raise a dispute.
-        request.disputeID = request.arbitrator.createDispute.value(
+        request.disputeID = uint128(request.arbitrator.createDispute.value(
             arbitrationCost
-        )(RULING_OPTIONS, request.arbitratorExtraData);
+        )(RULING_OPTIONS, request.arbitratorExtraData));
         arbitratorDisputeIDToItemID[address(request.arbitrator)][
             request.disputeID
         ] = _itemID;
@@ -759,14 +759,14 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         if (item.status == Status.Absent) {
             item.status = Status.RegistrationRequested;
-            request.metaEvidenceID = 2 * metaEvidenceUpdates;
+            request.metaEvidenceID = 2 * uint128(metaEvidenceUpdates);
         } else if (item.status == Status.Registered) {
             item.status = Status.ClearingRequested;
-            request.metaEvidenceID = 2 * metaEvidenceUpdates + 1;
+            request.metaEvidenceID = 2 * uint128(metaEvidenceUpdates) + 1;
         }
 
         request.parties[uint256(Party.Requester)] = msg.sender;
-        request.submissionTime = now;
+        request.submissionTime = uint72(now);
         request.arbitrator = arbitrator;
         request.arbitratorExtraData = arbitratorExtraData;
 
