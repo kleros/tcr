@@ -144,6 +144,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      */
     event Contribution(
         bytes32 indexed _itemID,
+        uint256 _request,
+        uint256 _round,
         address indexed _contributor,
         uint256 _contribution,
         Party _side
@@ -350,7 +352,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         Round storage round = request.rounds[0];
         contribute(
             _itemID,
-            round,
+            item.requests.length - 1,
+            0,
             Party.Challenger,
             msg.sender,
             msg.value,
@@ -450,7 +453,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 totalCost = appealCost.addCap(
             (appealCost.mulCap(multiplier)) / MULTIPLIER_DIVISOR
         );
-        contribute(_itemID, round, _side, msg.sender, msg.value, totalCost);
+        contribute(_itemID, items[_itemID].requests.length - 1, request.rounds.length - 1, _side, msg.sender, msg.value, totalCost);
 
         if (round.amountPaid[uint256(_side)] >= totalCost) {
             round.hasPaid[uint256(_side)] = true;
@@ -778,7 +781,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         contribute(
             _itemID,
-            round,
+            item.requests.length - 1,
+            request.rounds.length - 1,
             Party.Requester,
             msg.sender,
             msg.value,
@@ -805,7 +809,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
     /** @dev Make a fee contribution.
      *  @param _itemID The item receiving the contribution.
-     *  @param _round The round to contribute.
+     *  @param _requestID The request to contribute.
+     *  @param _roundID The round to contribute.
      *  @param _side The side for which to contribute.
      *  @param _contributor The contributor.
      *  @param _amount The amount contributed.
@@ -814,28 +819,31 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      */
     function contribute(
         bytes32 _itemID,
-        Round storage _round,
+        uint256 _requestID,
+        uint256 _roundID,
         Party _side,
         address payable _contributor,
         uint256 _amount,
         uint256 _totalRequired
     ) internal returns (uint256) {
+        Round storage round = items[_itemID].requests[_requestID].rounds[_roundID];
+
         // Take up to the amount necessary to fund the current round at the current costs.
         uint256 contribution; // Amount contributed.
         uint256 remainingETH; // Remaining ETH to send back.
         (contribution, remainingETH) = calculateContribution(
             _amount,
-            _totalRequired.subCap(_round.amountPaid[uint256(_side)])
+            _totalRequired.subCap(round.amountPaid[uint256(_side)])
         );
-        _round.contributions[_contributor][uint256(_side)] += contribution;
-        _round.amountPaid[uint256(_side)] += contribution;
-        _round.feeRewards += contribution;
+        round.contributions[_contributor][uint256(_side)] += contribution;
+        round.amountPaid[uint256(_side)] += contribution;
+        round.feeRewards += contribution;
 
         // Reimburse leftover ETH.
         if (remainingETH > 0) _contributor.send(remainingETH); // Deliberate use of send in order to not block the contract in case of reverting fallback.
 
         if (contribution > 0)
-            emit Contribution(_itemID, msg.sender, contribution, _side);
+            emit Contribution(_itemID, _requestID, _roundID, msg.sender, contribution, _side);
 
         return contribution;
     }
