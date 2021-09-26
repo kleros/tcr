@@ -138,14 +138,16 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     /**
      *  @dev Emitted when a party contributes to an appeal.
      *  @param _itemID The ID of the item.
+     *  @param _requestID The index of the request that received the contribution.
+     *  @param _roundID The index of the round that received the contribution.
      *  @param _contributor The address making the contribution.
      *  @param _contribution How much of the contribution was accepted.
      *  @param _side The party receiving the contribution.
      */
     event Contribution(
         bytes32 indexed _itemID,
-        uint256 _request,
-        uint256 _round,
+        uint256 _requestID,
+        uint256 _roundID,
         address indexed _contributor,
         uint256 _contribution,
         Party _side
