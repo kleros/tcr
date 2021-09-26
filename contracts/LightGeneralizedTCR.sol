@@ -1002,7 +1002,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         Request storage request = item.requests[_request];
         Round storage round = request.rounds[_round];
         return (
-            (_round + 1) < request.rounds.length - 1,
+            _round != 0 && _round < request.rounds.length - 1,
             round.amountPaid,
             round.hasPaid,
             round.feeRewards
