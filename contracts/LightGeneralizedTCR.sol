@@ -56,11 +56,11 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         bool resolved; // True if the request was executed and/or any raised disputes were resolved.
         Party ruling; // The final ruling given, if any.
         uint72 submissionTime; // Time when the request was made. Used to track when the challenge period ends.
+        IArbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         uint128 disputeID; // ID of the dispute, if any.
         uint128 metaEvidenceID; // The meta evidence to be used in a dispute for this case.
         address payable[3] parties; // Address of requester and challenger, if any, in the form parties[party].
         Round[] rounds; // Tracks each round of a dispute in the form rounds[roundID].
-        IArbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
     }
 
