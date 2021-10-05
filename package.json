@@ -7,19 +7,12 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "prettify": "kathari prettify",
-    "lint:sol": "kathari lint:sol",
-    "lint:js": "kathari lint:js",
-    "lint": "yarn run lint:sol",
-    "test:ganache": "ganache-cli --gasLimit 8000000  --defaultBalanceEther 10000 --quiet &",
-    "test:truffle": "truffle test",
-    "test": "run-p test:*",
-    "cz": "kathari cz",
-    "build": "truffle compile",
-    "release": "standard-version"
+    "test": "hardhat test",
+    "build": "hardhat compile",
+    "prepare": "husky install"
   },
   "files": [
-    "build/contracts/*.json",
+    "artifacts/**/*.json",
     "contracts/*.sol",
     "contracts/view/*.sol",
     "contracts/utils/*.sol"
@@ -29,32 +22,43 @@
       "@commitlint/config-conventional"
     ]
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "kathari precommit",
-      "commit-msg": "kathari commitmsg"
-    }
-  },
   "devDependencies": {
     "@kleros/kathari": "^0.23.0",
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-truffle5": "^2.0.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@nomiclabs/hardhat-web3": "^2.0.0",
+    "@openzeppelin/test-helpers": "^0.5.13",
+    "chai": "^4.3.4",
+    "eslint": "^7.32.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-import": "^2.24.2",
+    "eslint-plugin-prettier": "^4.0.0",
     "eth-gas-reporter": "^0.2.0",
+    "ethereum-waffle": "^3.4.0",
+    "ethers": "^5.4.7",
     "ganache-cli": "^6.4.4",
-    "husky": "^2.4.1",
+    "hardhat": "^2.6.4",
+    "husky": "^7.0.0",
     "jsonfile": "^5.0.0",
+    "lint-staged": "^11.2.0",
     "npm-run-all": "^4.1.5",
+    "prettier": "^2.4.1",
+    "prettier-plugin-solidity": "^1.0.0-beta.18",
+    "solhint": "^3.3.6",
+    "solhint-plugin-prettier": "^0.0.5",
     "standard-version": "^8.0.1",
-    "truffle": "^5.0.25"
+    "truffle": "^5.0.25",
+    "web3-utils": "~1.5.0",
+    "web3": "~1.5.0"
   },
   "dependencies": {
     "@kleros/erc-792": "3.0.0",
-    "chai": "^4.2.0",
-    "openzeppelin-test-helpers": "^0.4.3",
     "solidity-bytes-utils": "^0.0.8",
-    "solidity-rlp": "^2.0.1",
-    "web3-utils": "^1.2.1"
+    "solidity-rlp": "^2.0.1"
   },
   "volta": {
-    "node": "10.24.1",
+    "node": "14.18.0",
     "yarn": "1.22.11"
   }
 }
