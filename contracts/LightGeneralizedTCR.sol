@@ -24,7 +24,7 @@ import {CappedMath} from "./utils/CappedMath.sol";
  */
 contract LightGeneralizedTCR is IArbitrable, IEvidence {
     using CappedMath for uint256;
-    using CappedMath for uint248;
+    using CappedMath for uint232;
 
     /* Enums */
 
@@ -56,8 +56,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
     struct Item {
         Status status; // The current status of the item.
-        uint248 sumDeposit;
-        Request[] requests; // List of status change requests made for the item in the form requests[requestID].
+        uint232 sumDeposit; // The total deposit made by the requester and the challenger (if any).
+        uint16 requestCount; // The number of requests.
+        mapping(uint256 => Request) requests; // List of status change requests made for the item in the form requests[requestID].
     }
 
     // Arrays with 3 elements map with the Party enum for better readability:
@@ -262,7 +263,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(item.status == Status.Absent, "Item must be absent to be added.");
 
         // Note that if the item is added directly once, the next time it is added it will emit this event again.
-        if (item.requests.length == 0) emit NewItem(itemID, _item, true);
+        if (item.requestCount == 0) emit NewItem(itemID, _item, true);
 
         item.status = Status.Registered;
 
@@ -290,7 +291,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(item.status == Status.Absent, "Item must be absent to be added.");
 
         // Note that if the item was added previously using `addItemDirectly`, the event will be emitted again here.
-        if (item.requests.length == 0) emit NewItem(itemID, _item, false);
+        if (item.requestCount == 0) emit NewItem(itemID, _item, false);
 
         requestStatusChange(itemID, submissionBaseDeposit);
     }
@@ -306,7 +307,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         // Emit evidence if it was provided.
         if (bytes(_evidence).length > 0) {
             // Using `length` instead of `length - 1` because a new request will be added on requestStatusChange().
-            uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, item.requests.length)));
+            uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount))));
             IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsChanges.length - 1].arbitrator;
             emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
         }
@@ -326,13 +327,13 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             "The item must have a pending request."
         );
 
-        Request storage request = item.requests[item.requests.length - 1];
+        Request storage request = item.requests[item.requestCount - 1];
         require(
             block.timestamp - request.submissionTime <= challengePeriodDuration,
             "Challenges must occur during the challenge period."
         );
 
-        DisputeData storage disputeData = requestsDisputeData[_itemID][item.requests.length - 1];
+        DisputeData storage disputeData = requestsDisputeData[_itemID][item.requestCount - 1];
         require(disputeData.status == DisputeStatus.None, "The request should not have already been disputed.");
 
         (ArbitrationParams storage arbitrationParams, uint256 arbitrationParamsIndex) = findArbitrationParams(
@@ -347,7 +348,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(msg.value >= totalCost, "You must fully fund your side.");
 
         request.parties[uint256(Party.Challenger)] = msg.sender;
-        item.sumDeposit = uint248(item.sumDeposit.addCap(uint248(totalCost)).subCap(uint248(arbitrationCost)));
+        item.sumDeposit = uint232(item.sumDeposit.addCap(uint232(totalCost)).subCap(uint232(arbitrationCost)));
 
         // Raise a dispute.
         disputeData.disputeID = uint240(
@@ -364,7 +365,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 metaEvidenceID = request.requestType == RequestType.Registration
             ? 2 * arbitrationParamsIndex
             : 2 * arbitrationParamsIndex + 1;
-        uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, item.requests.length - 1)));
+        uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount - 1))));
         emit Dispute(arbitrationParams.arbitrator, disputeData.disputeID, metaEvidenceID, evidenceGroupID);
 
         if (bytes(_evidence).length > 0) {
@@ -387,7 +388,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             "The item must have a pending request."
         );
 
-        uint256 lastRequestIndex = items[_itemID].requests.length - 1;
+        uint256 lastRequestIndex = items[_itemID].requestCount - 1;
         Request storage request = items[_itemID].requests[lastRequestIndex];
 
         DisputeData storage disputeData = requestsDisputeData[_itemID][lastRequestIndex];
@@ -451,23 +452,23 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     /** @dev Reimburses contributions if no disputes were raised. If a dispute was raised, sends the fee stake rewards and reimbursements proportionally to the contributions made to the winner of a dispute.
      *  @param _beneficiary The address that made contributions to a request.
      *  @param _itemID The ID of the item submission to withdraw from.
-     *  @param _request The request from which to withdraw from.
-     *  @param _round The round from which to withdraw from.
+     *  @param _requestID The request from which to withdraw from.
+     *  @param _roundID The round from which to withdraw from.
      */
     function withdrawFeesAndRewards(
         address payable _beneficiary,
         bytes32 _itemID,
-        uint256 _request,
-        uint256 _round
+        uint256 _requestID,
+        uint256 _roundID
     ) public {
-        DisputeData storage disputeData = requestsDisputeData[_itemID][_request];
+        DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
 
         require(disputeData.status == DisputeStatus.Resolved, "Request must be resolved.");
 
-        Round storage round = disputeData.rounds[_round];
+        Round storage round = disputeData.rounds[_roundID];
 
         uint256 reward;
-        if (_round == disputeData.rounds.length - 1) {
+        if (_roundID == disputeData.rounds.length - 1) {
             // Reimburse if not enough fees were raised to appeal the ruling.
             reward =
                 round.contributions[_beneficiary][uint256(Party.Requester)] +
@@ -496,7 +497,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         if (reward > 0) {
             _beneficiary.send(reward);
-            emit RewardWithdrawn(_beneficiary, _itemID, _request, _round, reward);
+            emit RewardWithdrawn(_beneficiary, _itemID, _requestID, _roundID, reward);
         }
     }
 
@@ -505,7 +506,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      */
     function executeRequest(bytes32 _itemID) external {
         Item storage item = items[_itemID];
-        uint256 lastRequestIndex = items[_itemID].requests.length - 1;
+        uint256 lastRequestIndex = items[_itemID].requestCount - 1;
 
         Request storage request = item.requests[lastRequestIndex];
         require(now - request.submissionTime > challengePeriodDuration, "Time to challenge the request must pass.");
@@ -523,7 +524,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         emit ItemStatusChange(_itemID, false);
 
-        uint248 sumDeposit = item.sumDeposit;
+        uint256 sumDeposit = item.sumDeposit;
         item.sumDeposit = 0;
 
         if (sumDeposit > 0) {
@@ -541,7 +542,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(_ruling <= RULING_OPTIONS, "Invalid ruling option");
         bytes32 itemID = arbitratorDisputeIDToItemID[msg.sender][_disputeID];
         Item storage item = items[itemID];
-        uint256 lastRequestIndex = items[itemID].requests.length - 1;
+        uint256 lastRequestIndex = items[itemID].requestCount - 1;
 
         Request storage request = item.requests[lastRequestIndex];
         DisputeData storage disputeData = requestsDisputeData[itemID][lastRequestIndex];
@@ -573,14 +574,14 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         }
         emit ItemStatusChange(itemID, false);
 
-        uint248 sumDeposit = item.sumDeposit;
+        uint256 sumDeposit = item.sumDeposit;
         item.sumDeposit = 0;
 
         if (winner == Party.None) {
             // Since nobody has won, then we reimburse both parties equally.
 
             // If item.sumDeposit is odd, 1 wei will remain in the contract balance.
-            uint248 halfSumDeposit = sumDeposit / 2;
+            uint256 halfSumDeposit = sumDeposit / 2;
 
             request.parties[uint256(Party.Requester)].send(halfSumDeposit);
             request.parties[uint256(Party.Challenger)].send(halfSumDeposit);
@@ -617,7 +618,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      */
     function submitEvidence(bytes32 _itemID, string calldata _evidence) external {
         Item storage item = items[_itemID];
-        uint256 lastRequestIndex = item.requests.length - 1;
+        uint256 lastRequestIndex = item.requestCount - 1;
 
         DisputeData storage disputeData = requestsDisputeData[_itemID][lastRequestIndex];
         require(disputeData.status == DisputeStatus.AwaitingRuling, "The dispute must not already be resolved.");
@@ -625,7 +626,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         Request storage request = item.requests[lastRequestIndex];
         (ArbitrationParams storage arbitrationParams, ) = findArbitrationParams(request.submissionTime);
 
-        uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, item.requests.length - 1)));
+        uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount - 1))));
         emit Evidence(arbitrationParams.arbitrator, evidenceGroupID, msg.sender, _evidence);
     }
 
@@ -780,7 +781,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      */
     function requestStatusChange(bytes32 _itemID, uint256 _baseDeposit) internal {
         Item storage item = items[_itemID];
-        Request storage request = item.requests[item.requests.length++];
+        require(item.requestCount < uint16(-1), "Too many requests for item.");
+
+        Request storage request = item.requests[item.requestCount++];
         IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsChanges.length - 1].arbitrator;
         bytes storage arbitratorExtraData = arbitrationParamsChanges[arbitrationParamsChanges.length - 1]
             .arbitratorExtraData;
@@ -789,7 +792,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 totalCost = arbitrationCost.addCap(_baseDeposit);
         require(msg.value >= totalCost, "You must fully fund your side.");
 
-        item.sumDeposit = uint248(totalCost);
+        item.sumDeposit = uint232(totalCost);
         request.submissionTime = uint248(block.timestamp);
         request.parties[uint256(Party.Requester)] = msg.sender;
 
@@ -801,7 +804,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             request.requestType = RequestType.Clearing;
         }
 
-        uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, item.requests.length - 1)));
+        uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount - 1))));
         emit RequestSubmitted(_itemID, evidenceGroupID);
 
         if (msg.value > totalCost) {
@@ -879,19 +882,19 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
     /** @dev Gets the contributions made by a party for a given round of a request.
      *  @param _itemID The ID of the item.
-     *  @param _request The request to query.
-     *  @param _round The round to query.
+     *  @param _requestID The request to query.
+     *  @param _roundID The round to query.
      *  @param _contributor The address of the contributor.
      *  @return contributions The contributions.
      */
     function getContributions(
         bytes32 _itemID,
-        uint256 _request,
-        uint256 _round,
+        uint256 _requestID,
+        uint256 _roundID,
         address _contributor
     ) external view returns (uint256[3] memory contributions) {
-        DisputeData storage disputeData = requestsDisputeData[_itemID][_request];
-        Round storage round = disputeData.rounds[_round];
+        DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
+        Round storage round = disputeData.rounds[_roundID];
         contributions = round.contributions[_contributor];
     }
 
@@ -902,13 +905,13 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      */
     function getItemInfo(bytes32 _itemID) external view returns (Status status, uint256 numberOfRequests) {
         Item storage item = items[_itemID];
-        return (item.status, item.requests.length);
+        return (item.status, item.requestCount);
     }
 
     /**
      * @dev Gets information on a request made for the item.
      * @param _itemID The ID of the queried item.
-     * @param _request The request to be queried.
+     * @param _requestID The request to be queried.
      * @return disputed True if a dispute was raised.
      * @return disputeID ID of the dispute, if any..
      * @return submissionTime Time when the request was made.
@@ -920,7 +923,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      * @return arbitratorExtraData The extra data for the trusted arbitrator of this request.
      * @return metaEvidenceID The meta evidence to be used in a dispute for this case.
      */
-    function getRequestInfo(bytes32 _itemID, uint256 _request)
+    function getRequestInfo(bytes32 _itemID, uint256 _requestID)
         external
         view
         returns (
@@ -936,30 +939,30 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             uint256 metaEvidenceID
         )
     {
-        Request storage request = items[_itemID].requests[_request];
+        Request storage request = items[_itemID].requests[_requestID];
 
         submissionTime = request.submissionTime;
         parties = request.parties;
 
-        (disputed, disputeID, numberOfRounds, ruling) = getRequestDisputeData(_itemID, _request);
+        (disputed, disputeID, numberOfRounds, ruling) = getRequestDisputeData(_itemID, _requestID);
 
         (requestArbitrator, requestArbitratorExtraData, metaEvidenceID) = getRequestArbitrationParams(
             _itemID,
-            _request
+            _requestID
         );
-        resolved = getRequestResolvedStatus(_itemID, _request);
+        resolved = getRequestResolvedStatus(_itemID, _requestID);
     }
 
     /**
      * @dev Gets the dispute data relative to a given item request.
      * @param _itemID The ID of the queried item.
-     * @param _request The request to be queried.
+     * @param _requestID The request to be queried.
      * @return disputed True if a dispute was raised.
      * @return disputeID ID of the dispute, if any..
      * @return ruling The final ruling given, if any.
      * @return numberOfRounds Number of rounds of dispute.
      */
-    function getRequestDisputeData(bytes32 _itemID, uint256 _request)
+    function getRequestDisputeData(bytes32 _itemID, uint256 _requestID)
         public
         view
         returns (
@@ -969,7 +972,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             Party ruling
         )
     {
-        DisputeData storage disputeData = requestsDisputeData[_itemID][_request];
+        DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
 
         return (
             disputeData.status >= DisputeStatus.AwaitingRuling,
@@ -982,12 +985,12 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     /**
      * @dev Gets the arbitration params relative to a given item request.
      * @param _itemID The ID of the queried item.
-     * @param _request The request to be queried.
+     * @param _requestID The request to be queried.
      * @return arbitrator The arbitrator trusted to solve disputes for this request.
      * @return arbitratorExtraData The extra data for the trusted arbitrator of this request.
      * @return metaEvidenceID The meta evidence to be used in a dispute for this case.
      */
-    function getRequestArbitrationParams(bytes32 _itemID, uint256 _request)
+    function getRequestArbitrationParams(bytes32 _itemID, uint256 _requestID)
         public
         view
         returns (
@@ -996,7 +999,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             uint256 metaEvidenceID
         )
     {
-        Request storage request = items[_itemID].requests[_request];
+        Request storage request = items[_itemID].requests[_requestID];
         (ArbitrationParams storage arbitrationParams, uint256 arbitrationParamsIndex) = findArbitrationParams(
             request.submissionTime
         );
@@ -1013,19 +1016,19 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     /**
      * @dev Gets the resovled status of a given item request.
      * @param _itemID The ID of the queried item.
-     * @param _request The request to be queried.
+     * @param _requestID The request to be queried.
      * @return resolved True if the request was executed and/or any raised disputes were resolved.
      */
-    function getRequestResolvedStatus(bytes32 _itemID, uint256 _request) public view returns (bool resolved) {
+    function getRequestResolvedStatus(bytes32 _itemID, uint256 _requestID) public view returns (bool resolved) {
         Item storage item = items[_itemID];
-        uint256 numberOfRequests = item.requests.length;
+        uint256 numberOfRequests = item.requestCount;
 
-        if (_request < numberOfRequests - 1) {
+        if (_requestID < numberOfRequests - 1) {
             // It was resolved because it is not the last request.
             return true;
         }
 
-        DisputeData storage disputeData = requestsDisputeData[_itemID][_request];
+        DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
         return disputeData.status != DisputeStatus.AwaitingRuling;
     }
 
@@ -1065,8 +1068,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
     /** @dev Gets the information of a round of a request.
      *  @param _itemID The ID of the queried item.
-     *  @param _request The request to be queried.
-     *  @param _round The round to be queried.
+     *  @param _requestID The request to be queried.
+     *  @param _roundID The round to be queried.
      *  @return appealed Whether appealed or not.
      *  @return amountPaid Tracks the sum paid for each Party in this round.
      *  @return hasPaid True if the Party has fully paid its fee in this round.
@@ -1074,8 +1077,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      */
     function getRoundInfo(
         bytes32 _itemID,
-        uint256 _request,
-        uint256 _round
+        uint256 _requestID,
+        uint256 _roundID
     )
         external
         view
@@ -1086,10 +1089,10 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             uint256 feeRewards
         )
     {
-        DisputeData storage disputeData = requestsDisputeData[_itemID][_request];
-        Round storage round = disputeData.rounds[_round];
+        DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
+        Round storage round = disputeData.rounds[_roundID];
         return (
-            _round != 0 && _round < disputeData.rounds.length - 1,
+            _roundID != 0 && _roundID < disputeData.rounds.length - 1,
             round.amountPaid,
             round.hasPaid,
             round.feeRewards
