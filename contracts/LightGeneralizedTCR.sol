@@ -157,10 +157,10 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     event RequestSubmitted(bytes32 indexed _itemID, uint256 _evidenceGroupID);
 
     /**
-     *  @dev Emitted when a party contributes to an appeal.
+     *  @dev Emitted when a party contributes to an appeal. The roundID assumes the initial request and challenge deposits are the first round. This is done so indexers can know more information about the contribution without using call handlers.
      *  @param _itemID The ID of the item.
      *  @param _requestID The index of the request that received the contribution.
-     *  @param _roundID The index of the round that received the contribution.
+     *  @param _roundID The index + 1 of the round that received the contribution.
      *  @param _contributor The address making the contribution.
      *  @param _contribution How much of the contribution was accepted.
      *  @param _side The party receiving the contribution.
@@ -375,6 +375,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         if (msg.value > totalCost) {
             msg.sender.send(msg.value - totalCost);
         }
+
+        emit Contribution(_itemID, item.requestCount - 1, 0, msg.sender, totalCost, Party.Challenger);
     }
 
     /** @dev Takes up to the total amount required to fund a side of an appeal. Reimburses the rest. Creates an appeal if both sides are fully funded.
@@ -810,6 +812,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         if (msg.value > totalCost) {
             msg.sender.send(msg.value - totalCost);
         }
+
+        emit Contribution(_itemID, item.requestCount - 1, 0, msg.sender, totalCost, Party.Requester);
     }
 
     /** @dev Returns the contribution value and remainder from available ETH and required amount.
@@ -870,7 +874,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         }
 
         if (contribution > 0) {
-            emit Contribution(_itemID, _requestID, _roundID, msg.sender, contribution, _side);
+            emit Contribution(_itemID, _requestID, _roundID + 1, msg.sender, contribution, _side);
         }
 
         return contribution;
