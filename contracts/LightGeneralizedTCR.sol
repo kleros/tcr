@@ -1,6 +1,6 @@
 /**
  *  @authors: [@unknownunknown1*, @mtsalenc*, @hbarcelos]
- *  @reviewers: []
+ *  @reviewers: [@fnanni-0]
  *  @auditors: []
  *  @bounties: [{ link: https://github.com/kleros/tcr/issues/20, maxPayout: 25 ETH }]
  *  @deployments: []

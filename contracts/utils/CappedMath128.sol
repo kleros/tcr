@@ -1,6 +1,6 @@
 /**
  *  @authors: [@hbarcelos]
- *  @reviewers: []
+ *  @reviewers: [@fnanni-0]
  *  @auditors: []
  *  @bounties: []
  *  @deployments: []
