@@ -68,7 +68,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     // - 2: for `Party.Challenger`.
     struct Request {
         RequestType requestType;
-        uint248 submissionTime; // Time when the request was made. Used to track when the challenge period ends.
+        uint120 submissionTime; // Time when the request was made. Used to track when the challenge period ends.
+        uint128 arbitrationParamsIndex; // The index for the arbitration params for the request.
         address payable[3] parties; // Address of requester and challenger, if any, in the form parties[party].
     }
 
@@ -333,9 +334,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         DisputeData storage disputeData = requestsDisputeData[_itemID][item.requestCount - 1];
         require(disputeData.status == DisputeStatus.None, "The request should not have already been disputed.");
 
-        (ArbitrationParams storage arbitrationParams, uint256 arbitrationParamsIndex) = findArbitrationParams(
-            request.submissionTime
-        );
+        ArbitrationParams storage arbitrationParams = arbitrationParamsChanges[request.arbitrationParamsIndex];
 
         uint256 arbitrationCost = arbitrationParams.arbitrator.arbitrationCost(arbitrationParams.arbitratorExtraData);
         uint256 challengerBaseDeposit = item.status == Status.RegistrationRequested
@@ -359,7 +358,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         disputeData.status = DisputeStatus.AwaitingRuling;
         disputeData.roundCount++;
 
-        uint256 metaEvidenceID = 2 * arbitrationParamsIndex + uint256(request.requestType);
+        uint256 metaEvidenceID = 2 * request.arbitrationParamsIndex + uint256(request.requestType);
         uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount - 1))));
         emit Dispute(arbitrationParams.arbitrator, disputeData.disputeID, metaEvidenceID, evidenceGroupID);
 
@@ -394,7 +393,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             "A dispute must have been raised to fund an appeal."
         );
 
-        (ArbitrationParams storage arbitrationParams, ) = findArbitrationParams(request.submissionTime);
+        ArbitrationParams storage arbitrationParams = arbitrationParamsChanges[request.arbitrationParamsIndex];
 
         uint256 lastRoundIndex = disputeData.roundCount - 1;
         Round storage round = disputeData.rounds[lastRoundIndex];
@@ -543,7 +542,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         Request storage request = item.requests[lastRequestIndex];
         DisputeData storage disputeData = requestsDisputeData[itemID][lastRequestIndex];
-        (ArbitrationParams storage arbitrationParams, ) = findArbitrationParams(request.submissionTime);
+        ArbitrationParams storage arbitrationParams = arbitrationParamsChanges[request.arbitrationParamsIndex];
+
         require(address(arbitrationParams.arbitrator) == msg.sender, "Only the arbitrator can give a ruling");
         require(disputeData.status == DisputeStatus.AwaitingRuling, "The request must not be resolved.");
 
@@ -621,7 +621,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(disputeData.status == DisputeStatus.AwaitingRuling, "The dispute must not already be resolved.");
 
         Request storage request = item.requests[lastRequestIndex];
-        (ArbitrationParams storage arbitrationParams, ) = findArbitrationParams(request.submissionTime);
+        ArbitrationParams storage arbitrationParams = arbitrationParamsChanges[request.arbitrationParamsIndex];
 
         uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount - 1))));
         emit Evidence(arbitrationParams.arbitrator, evidenceGroupID, msg.sender, _evidence);
@@ -666,7 +666,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         removalChallengeBaseDeposit = _removalChallengeBaseDeposit;
     }
 
-    /** @dev Change the governor of the curated registry., uint arbitrationParamsIndex
+    /** @dev Change the governor of the curated registry.
      *  @param _governor The address of the new governor.
      */
     function changeGovernor(address _governor) external onlyGovernor {
@@ -752,7 +752,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
     /**
      * @notice Gets the arbitrator for new requests.
-     * @dev Gets the latest value in arbitrationParamChanges.
+     * @dev Gets the latest value in arbitrationParamsChanges.
      * @return The arbitrator address.
      */
     function arbitrator() external view returns (IArbitrator) {
@@ -761,7 +761,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
     /**
      * @notice Gets the arbitratorExtraData for new requests.
-     * @dev Gets the latest value in arbitrationParamChanges.
+     * @dev Gets the latest value in arbitrationParamsChanges.
      * @return The arbitrator extra data.
      */
     function arbitratorExtraData() external view returns (bytes memory) {
@@ -780,16 +780,17 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(item.requestCount < uint120(-1), "Too many requests for item.");
 
         Request storage request = item.requests[item.requestCount++];
-        IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsChanges.length - 1].arbitrator;
-        bytes storage arbitratorExtraData = arbitrationParamsChanges[arbitrationParamsChanges.length - 1]
-            .arbitratorExtraData;
+        uint256 arbitrationParamsIndex = arbitrationParamsChanges.length - 1;
+        IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsIndex].arbitrator;
+        bytes storage arbitratorExtraData = arbitrationParamsChanges[arbitrationParamsIndex].arbitratorExtraData;
 
         uint256 arbitrationCost = arbitrator.arbitrationCost(arbitratorExtraData);
         uint256 totalCost = arbitrationCost.addCap(_baseDeposit);
         require(msg.value >= totalCost, "You must fully fund your side.");
 
         item.sumDeposit = uint128(totalCost);
-        request.submissionTime = uint248(block.timestamp);
+        request.submissionTime = uint120(block.timestamp);
+        request.arbitrationParamsIndex = uint128(arbitrationParamsIndex);
         request.parties[uint256(Party.Requester)] = msg.sender;
 
         if (item.status == Status.Absent) {
@@ -998,16 +999,14 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         )
     {
         Request storage request = items[_itemID].requests[_requestID];
-        (ArbitrationParams storage arbitrationParams, uint256 arbitrationParamsIndex) = findArbitrationParams(
-            request.submissionTime
-        );
+        ArbitrationParams storage arbitrationParams = arbitrationParamsChanges[request.arbitrationParamsIndex];
 
         return (
             arbitrationParams.arbitrator,
             arbitrationParams.arbitratorExtraData,
             request.requestType == RequestType.Registration
-                ? 2 * arbitrationParamsIndex
-                : 2 * arbitrationParamsIndex + 1
+                ? 2 * request.arbitrationParamsIndex
+                : 2 * request.arbitrationParamsIndex + 1
         );
     }
 
@@ -1028,40 +1027,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
         return disputeData.status != DisputeStatus.AwaitingRuling;
-    }
-
-    /**
-     * @notice Finds the arbitration params for a request which happened at a given timestamp. O(log n) in worst case.
-     * @dev Performs a binary search to find the last ArbitrationParams whose .timestamp is less than or equal the given _timestamp.
-     * @param _timestamp The timestamp of the request.
-     * @return _arbitrationParams The arbitration params object.
-     * @return _index The index of the found arbitration params object.
-     */
-    function findArbitrationParams(uint256 _timestamp)
-        internal
-        view
-        returns (ArbitrationParams storage arbitrationParams, uint256 index)
-    {
-        uint256 last = arbitrationParamsChanges.length - 1;
-
-        if (_timestamp > arbitrationParamsChanges[last].timestamp) {
-            return (arbitrationParamsChanges[last], last);
-        }
-
-        uint256 left = 0;
-        uint256 right = arbitrationParamsChanges.length;
-
-        while (left < right) {
-            uint256 pivot = (left + right) / 2;
-            if (arbitrationParamsChanges[pivot].timestamp <= _timestamp) {
-                left = pivot + 1;
-            } else {
-                right = pivot;
-            }
-        }
-
-        uint256 index = right - 1;
-        return (arbitrationParamsChanges[index], index);
     }
 
     /** @dev Gets the information of a round of a request.
