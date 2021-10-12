@@ -1124,6 +1124,55 @@ describe("LightGeneralizedTCR", () => {
     });
   });
 
+  describe("When updating arbitration params multiple times", () => {
+    it("Should get the right arbitration params for an item in the middle of several updates #regression", async () => {
+      const changes = Array(10)
+        .fill()
+        .map((_, i) => ({
+          arbitrator: newArbitrator.address,
+          arbitratorExtraData: "0x" + Number(i).toString(16).padStart(2, "0"),
+          registrationMetaEvidence: "/ipfs/Qmfoo-" + Number(i).toString(16).padStart(2, "0"),
+          clearingMetaEvidence: "/ipfs/Qmbar-" + Number(i).toString(16).padStart(2, "0"),
+        }));
+      const changesBefore = 5;
+      const expectedRegistrationMetaEvidenceID = 12;
+
+      for (let i = 0; i <= changesBefore; i++) {
+        await gtcr.changeArbitrationParams(
+          changes[i].arbitrator,
+          changes[i].arbitratorExtraData,
+          changes[i].registrationMetaEvidence,
+          changes[i].clearingMetaEvidence,
+          { from: governor }
+        );
+        await time.increase(5);
+      }
+
+      const addTx = await gtcr.addItem("0xaabbaa", {
+        from: requester,
+        value: submitterTotalCost,
+      });
+
+      const itemID = addTx.logs[0].args._itemID;
+
+      for (let i = changesBefore + 1; i < changes.lenght; i++) {
+        await gtcr.changeArbitrationParams(
+          changes[i].arbitrator,
+          changes[i].arbitratorExtraData,
+          changes[i].registrationMetaEvidence,
+          changes[i].clearingMetaEvidence,
+          { from: governor }
+        );
+        await time.increase(5);
+      }
+
+      const requestInfo = await gtcr.getRequestInfo(itemID, 0);
+
+      assert.equal(requestInfo.requestArbitratorExtraData, changes[changesBefore].arbitratorExtraData);
+      assert.equal(requestInfo.metaEvidenceID.toNumber(), expectedRegistrationMetaEvidenceID);
+    });
+  });
+
   describe("When there is a pending request before updating arbitration params", () => {
     let newParams;
 

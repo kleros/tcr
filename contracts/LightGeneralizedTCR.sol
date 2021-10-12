@@ -11,6 +11,7 @@ pragma solidity 0.5.17;
 import {IArbitrable, IArbitrator} from "@kleros/erc-792/contracts/IArbitrator.sol";
 import {IEvidence} from "@kleros/erc-792/contracts/erc-1497/IEvidence.sol";
 import {CappedMath} from "./utils/CappedMath.sol";
+import {CappedMath128} from "./utils/CappedMath128.sol";
 
 /* solium-disable max-len */
 /* solium-disable security/no-block-members */
@@ -24,7 +25,7 @@ import {CappedMath} from "./utils/CappedMath.sol";
  */
 contract LightGeneralizedTCR is IArbitrable, IEvidence {
     using CappedMath for uint256;
-    using CappedMath for uint232;
+    using CappedMath128 for uint128;
 
     /* Enums */
 
@@ -56,8 +57,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
     struct Item {
         Status status; // The current status of the item.
-        uint232 sumDeposit; // The total deposit made by the requester and the challenger (if any).
-        uint16 requestCount; // The number of requests.
+        uint128 sumDeposit; // The total deposit made by the requester and the challenger (if any).
+        uint120 requestCount; // The number of requests.
         mapping(uint256 => Request) requests; // List of status change requests made for the item in the form requests[requestID].
     }
 
@@ -89,8 +90,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 timestamp; // The time in which the arbitration params were set.
         IArbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
-        string registrationMetaEvidence; //The URI of the meta evidence object for registration requests.
-        string clearingMetaEvidence; // The URI of the meta evidence object for clearing requests.
     }
 
     /* Storage */
@@ -322,10 +321,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     function challengeRequest(bytes32 _itemID, string calldata _evidence) external payable {
         Item storage item = items[_itemID];
 
-        require(
-            item.status == Status.RegistrationRequested || item.status == Status.ClearingRequested,
-            "The item must have a pending request."
-        );
+        require(item.status >= Status.RegistrationRequested, "The item must have a pending request.");
 
         Request storage request = item.requests[item.requestCount - 1];
         require(
@@ -348,7 +344,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(msg.value >= totalCost, "You must fully fund your side.");
 
         request.parties[uint256(Party.Challenger)] = msg.sender;
-        item.sumDeposit = uint232(item.sumDeposit.addCap(uint232(totalCost)).subCap(uint232(arbitrationCost)));
+        item.sumDeposit = item.sumDeposit.addCap(uint128(totalCost)).subCap(uint128(arbitrationCost));
 
         // Raise a dispute.
         disputeData.disputeID = uint240(
@@ -362,9 +358,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         disputeData.status = DisputeStatus.AwaitingRuling;
         disputeData.rounds.length++;
 
-        uint256 metaEvidenceID = request.requestType == RequestType.Registration
-            ? 2 * arbitrationParamsIndex
-            : 2 * arbitrationParamsIndex + 1;
+        uint256 metaEvidenceID = 2 * arbitrationParamsIndex + uint256(request.requestType);
         uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount - 1))));
         emit Dispute(arbitrationParams.arbitrator, disputeData.disputeID, metaEvidenceID, evidenceGroupID);
 
@@ -750,9 +744,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             ArbitrationParams({
                 timestamp: block.timestamp,
                 arbitrator: _arbitrator,
-                arbitratorExtraData: _arbitratorExtraData,
-                registrationMetaEvidence: _registrationMetaEvidence,
-                clearingMetaEvidence: _clearingMetaEvidence
+                arbitratorExtraData: _arbitratorExtraData
             })
         );
     }
@@ -783,7 +775,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      */
     function requestStatusChange(bytes32 _itemID, uint256 _baseDeposit) internal {
         Item storage item = items[_itemID];
-        require(item.requestCount < uint16(-1), "Too many requests for item.");
+        // Extremely unlikely, but we check that for correctness sake.
+        require(item.requestCount < uint120(-1), "Too many requests for item.");
 
         Request storage request = item.requests[item.requestCount++];
         IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsChanges.length - 1].arbitrator;
@@ -794,7 +787,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 totalCost = arbitrationCost.addCap(_baseDeposit);
         require(msg.value >= totalCost, "You must fully fund your side.");
 
-        item.sumDeposit = uint232(totalCost);
+        item.sumDeposit = uint128(totalCost);
         request.submissionTime = uint248(block.timestamp);
         request.parties[uint256(Party.Requester)] = msg.sender;
 
@@ -1058,7 +1051,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 right = arbitrationParamsChanges.length;
 
         while (left < right) {
-            uint256 pivot = (left + right / 2);
+            uint256 pivot = (left + right) / 2;
             if (arbitrationParamsChanges[pivot].timestamp <= _timestamp) {
                 left = pivot + 1;
             } else {
