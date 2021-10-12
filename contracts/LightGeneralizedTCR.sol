@@ -75,8 +75,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     struct DisputeData {
         DisputeStatus status;
         Party ruling;
-        uint240 disputeID;
-        Round[] rounds;
+        uint224 disputeID;
+        uint16 roundCount;
+        mapping(uint256 => Round) rounds;
     }
 
     struct Round {
@@ -347,7 +348,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         item.sumDeposit = item.sumDeposit.addCap(uint128(totalCost)).subCap(uint128(arbitrationCost));
 
         // Raise a dispute.
-        disputeData.disputeID = uint240(
+        disputeData.disputeID = uint224(
             arbitrationParams.arbitrator.createDispute.value(arbitrationCost)(
                 RULING_OPTIONS,
                 arbitrationParams.arbitratorExtraData
@@ -356,7 +357,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         arbitratorDisputeIDToItemID[address(arbitrationParams.arbitrator)][disputeData.disputeID] = _itemID;
 
         disputeData.status = DisputeStatus.AwaitingRuling;
-        disputeData.rounds.length++;
+        disputeData.roundCount++;
 
         uint256 metaEvidenceID = 2 * arbitrationParamsIndex + uint256(request.requestType);
         uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount - 1))));
@@ -395,7 +396,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         (ArbitrationParams storage arbitrationParams, ) = findArbitrationParams(request.submissionTime);
 
-        uint256 lastRoundIndex = disputeData.rounds.length - 1;
+        uint256 lastRoundIndex = disputeData.roundCount - 1;
         Round storage round = disputeData.rounds[lastRoundIndex];
         require(!round.hasPaid[uint256(_side)], "Side already fully funded.");
 
@@ -440,7 +441,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
                 disputeData.disputeID,
                 arbitrationParams.arbitratorExtraData
             );
-            disputeData.rounds.length++;
+            disputeData.roundCount++;
             round.feeRewards = round.feeRewards.subCap(appealCost);
         }
     }
@@ -464,7 +465,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         Round storage round = disputeData.rounds[_roundID];
 
         uint256 reward;
-        if (_roundID == disputeData.rounds.length - 1) {
+        if (_roundID == disputeData.roundCount - 1) {
             // Reimburse if not enough fees were raised to appeal the ruling.
             reward =
                 round.contributions[_beneficiary][uint256(Party.Requester)] +
@@ -596,7 +597,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      * @return The final ruling.
      */
     function _getFinalRuling(DisputeData storage _disputeData, uint256 _ruling) internal view returns (uint256) {
-        Round storage round = _disputeData.rounds[_disputeData.rounds.length - 1];
+        Round storage round = _disputeData.rounds[_disputeData.roundCount - 1];
         // The ruling is inverted if the loser paid its fees.
         if (round.hasPaid[uint256(Party.Requester)]) {
             // If one side paid its fees, the ruling is in its favor. Note that if the other side had also paid, an appeal would have been created.
@@ -974,7 +975,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         return (
             disputeData.status >= DisputeStatus.AwaitingRuling,
             disputeData.disputeID,
-            disputeData.rounds.length,
+            disputeData.roundCount,
             disputeData.ruling
         );
     }
@@ -1089,7 +1090,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
         Round storage round = disputeData.rounds[_roundID];
         return (
-            _roundID != 0 && _roundID < disputeData.rounds.length - 1,
+            _roundID != 0 && _roundID < disputeData.roundCount - 1,
             round.amountPaid,
             round.hasPaid,
             round.feeRewards
