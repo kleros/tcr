@@ -307,7 +307,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         // Emit evidence if it was provided.
         if (bytes(_evidence).length > 0) {
-            // Using `length` instead of `length - 1` because a new request will be added on requestStatusChange().
+            // Using `requestCount` instead of `requestCount - 1` because a new request will be added on requestStatusChange().
             uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount))));
             IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsChanges.length - 1].arbitrator;
             emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
