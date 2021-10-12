@@ -344,6 +344,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(msg.value >= totalCost, "You must fully fund your side.");
 
         request.parties[uint256(Party.Challenger)] = msg.sender;
+        // Casting is safe here because this line will never be executed in case
+        // totalCost > type(uint128).max, since it would be an unpayable value.
         item.sumDeposit = item.sumDeposit.addCap(uint128(totalCost)).subCap(uint128(arbitrationCost));
 
         // Raise a dispute.
@@ -788,6 +790,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 totalCost = arbitrationCost.addCap(_baseDeposit);
         require(msg.value >= totalCost, "You must fully fund your side.");
 
+        // Casting is safe here because this line will never be executed in case
+        // totalCost > type(uint128).max, since it would be an unpayable value.
         item.sumDeposit = uint128(totalCost);
         request.submissionTime = uint120(block.timestamp);
         request.arbitrationParamsIndex = uint128(arbitrationParamsIndex);
