@@ -68,9 +68,11 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     // - 2: for `Party.Challenger`.
     struct Request {
         RequestType requestType;
-        uint120 submissionTime; // Time when the request was made. Used to track when the challenge period ends.
-        uint128 arbitrationParamsIndex; // The index for the arbitration params for the request.
-        address payable[3] parties; // Address of requester and challenger, if any, in the form parties[party].
+        uint64 submissionTime; // Time when the request was made. Used to track when the challenge period ends.
+        uint24 arbitrationParamsIndex; // The index for the arbitration params for the request.
+        address payable requester; // Address of the requester.
+        // Pack the requester together with the other parameters, as they are written in the same request.
+        address payable challenger; // Address of the challenger, if any.
     }
 
     struct DisputeData {
@@ -343,7 +345,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 totalCost = arbitrationCost.addCap(challengerBaseDeposit);
         require(msg.value >= totalCost, "You must fully fund your side.");
 
-        request.parties[uint256(Party.Challenger)] = msg.sender;
+        request.challenger = msg.sender;
         // Casting is safe here because this line will never be executed in case
         // totalCost > type(uint128).max, since it would be an unpayable value.
         item.sumDeposit = item.sumDeposit.addCap(uint128(totalCost)).subCap(uint128(arbitrationCost));
@@ -525,7 +527,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         if (sumDeposit > 0) {
             // reimburse the requester
-            request.parties[uint256(Party.Requester)].send(sumDeposit);
+            request.requester.send(sumDeposit);
         }
     }
 
@@ -580,11 +582,12 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             // If item.sumDeposit is odd, 1 wei will remain in the contract balance.
             uint256 halfSumDeposit = sumDeposit / 2;
 
-            request.parties[uint256(Party.Requester)].send(halfSumDeposit);
-            request.parties[uint256(Party.Challenger)].send(halfSumDeposit);
+            request.requester.send(halfSumDeposit);
+            request.challenger.send(halfSumDeposit);
         } else {
             // Reimburse the winner.
-            request.parties[finalRuling].send(sumDeposit);
+            address payable winnerAddress = winner == Party.Requester ? request.requester : request.challenger;
+            winnerAddress.send(sumDeposit);
         }
     }
 
@@ -791,9 +794,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         // Casting is safe here because this line will never be executed in case
         // totalCost > type(uint128).max, since it would be an unpayable value.
         item.sumDeposit = uint128(totalCost);
-        request.submissionTime = uint120(block.timestamp);
-        request.arbitrationParamsIndex = uint128(arbitrationParamsIndex);
-        request.parties[uint256(Party.Requester)] = msg.sender;
+        request.submissionTime = uint64(block.timestamp);
+        request.arbitrationParamsIndex = uint24(arbitrationParamsIndex);
+        request.requester = msg.sender;
 
         if (item.status == Status.Absent) {
             item.status = Status.RegistrationRequested;
@@ -943,7 +946,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         Request storage request = items[_itemID].requests[_requestID];
 
         submissionTime = request.submissionTime;
-        parties = request.parties;
+        parties[uint256(Party.Requester)] = request.requester;
+        parties[uint256(Party.Challenger)] = request.challenger;
 
         (disputed, disputeID, numberOfRounds, ruling) = getRequestDisputeData(_itemID, _requestID);
 
