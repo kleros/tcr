@@ -906,9 +906,17 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      *  @return status The current status of the item.
      *  @return numberOfRequests Length of list of status change requests made for the item.
      */
-    function getItemInfo(bytes32 _itemID) external view returns (Status status, uint256 numberOfRequests) {
+    function getItemInfo(bytes32 _itemID)
+        external
+        view
+        returns (
+            Status status,
+            uint256 numberOfRequests,
+            uint256 sumDeposit
+        )
+    {
         Item storage item = items[_itemID];
-        return (item.status, item.requestCount);
+        return (item.status, item.requestCount, item.sumDeposit);
     }
 
     /**
