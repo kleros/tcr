@@ -74,11 +74,11 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     }
 
     struct DisputeData {
-        DisputeStatus status;
-        Party ruling;
-        uint224 disputeID;
-        uint16 roundCount;
-        mapping(uint256 => Round) rounds;
+        uint256 disputeID; // The ID of the dispute on the arbitrator.
+        DisputeStatus status; // The current status of the dispute.
+        Party ruling; // The ruling given to a dispute. Only set after it has been resolved.
+        uint240 roundCount; // The number of rounds.
+        mapping(uint256 => Round) rounds; // Data bout the different dispute rounds. rounds[roundId].
     }
 
     struct Round {
@@ -349,11 +349,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         item.sumDeposit = item.sumDeposit.addCap(uint128(totalCost)).subCap(uint128(arbitrationCost));
 
         // Raise a dispute.
-        disputeData.disputeID = uint224(
-            arbitrationParams.arbitrator.createDispute.value(arbitrationCost)(
-                RULING_OPTIONS,
-                arbitrationParams.arbitratorExtraData
-            )
+        disputeData.disputeID = arbitrationParams.arbitrator.createDispute.value(arbitrationCost)(
+            RULING_OPTIONS,
+            arbitrationParams.arbitratorExtraData
         );
         arbitratorDisputeIDToItemID[address(arbitrationParams.arbitrator)][disputeData.disputeID] = _itemID;
 
