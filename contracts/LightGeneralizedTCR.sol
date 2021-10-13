@@ -1056,11 +1056,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     {
         DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
         Round storage round = disputeData.rounds[_roundID];
-        return (
-            _roundID != 0 && _roundID < disputeData.roundCount - 1,
-            round.amountPaid,
-            round.hasPaid,
-            round.feeRewards
-        );
+        return (_roundID < disputeData.roundCount - 1, round.amountPaid, round.hasPaid, round.feeRewards);
     }
 }
