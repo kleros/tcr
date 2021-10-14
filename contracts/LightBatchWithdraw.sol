@@ -8,14 +8,13 @@
 
 pragma solidity ^0.5.16;
 
-import { LightGeneralizedTCR } from "./LightGeneralizedTCR.sol";
+import {LightGeneralizedTCR} from "./LightGeneralizedTCR.sol";
 
 /**
  *  @title LightBatchWithdraw
  *  Withdraw fees and rewards from contributions to disputes rounds in batches.
  */
 contract LightBatchWithdraw {
-
     /** @dev Withdraws rewards and reimbursements of multiple rounds at once. This function is O(n) where n is the number of rounds. This could exceed gas limits, therefore this function should be used only as a utility and not be relied upon by other contracts.
      *  @param _address The address of the LightGTCR.
      *  @param _contributor The address that made contributions to the request.
@@ -28,13 +27,13 @@ contract LightBatchWithdraw {
         address _address,
         address payable _contributor,
         bytes32 _itemID,
-        uint _request,
-        uint _cursor,
-        uint _count
+        uint256 _request,
+        uint256 _cursor,
+        uint256 _count
     ) public {
         LightGeneralizedTCR gtcr = LightGeneralizedTCR(_address);
-        (,,,,,uint numberOfRounds,,,,) = gtcr.getRequestInfo(_itemID, _request);
-        for (uint i = _cursor; i < numberOfRounds && (_count == 0 || i < _count); i++)
+        (, , , , , uint256 numberOfRounds, , , , ) = gtcr.getRequestInfo(_itemID, _request);
+        for (uint256 i = _cursor; i < numberOfRounds && (_count == 0 || i < _count); i++)
             gtcr.withdrawFeesAndRewards(_contributor, _itemID, _request, i);
     }
 
@@ -51,17 +50,14 @@ contract LightBatchWithdraw {
         address _address,
         address payable _contributor,
         bytes32 _itemID,
-        uint _cursor,
-        uint _count,
-        uint _roundCursor,
-        uint _roundCount
+        uint256 _cursor,
+        uint256 _count,
+        uint256 _roundCursor,
+        uint256 _roundCount
     ) external {
         LightGeneralizedTCR gtcr = LightGeneralizedTCR(_address);
-        (
-            ,
-            uint numberOfRequests
-        ) = gtcr.getItemInfo(_itemID);
-        for (uint i = _cursor; i < numberOfRequests && (_count == 0 || i < _count); i++)
+        (, uint256 numberOfRequests, ) = gtcr.getItemInfo(_itemID);
+        for (uint256 i = _cursor; i < numberOfRequests && (_count == 0 || i < _count); i++)
             batchRoundWithdraw(_address, _contributor, _itemID, i, _roundCursor, _roundCount);
     }
 }
