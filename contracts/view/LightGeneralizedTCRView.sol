@@ -10,8 +10,6 @@ pragma solidity 0.5.17;
 pragma experimental ABIEncoderV2;
 
 import {LightGeneralizedTCR, IArbitrator} from "../LightGeneralizedTCR.sol";
-import {BytesLib} from "solidity-bytes-utils/contracts/BytesLib.sol";
-import {RLPReader} from "solidity-rlp/contracts/RLPReader.sol";
 
 /* solium-disable max-len */
 /* solium-disable security/no-block-members */
@@ -24,10 +22,6 @@ import {RLPReader} from "solidity-rlp/contracts/RLPReader.sol";
  *  This contract includes functions that can halt execution due to out-of-gas exceptions. Because of this it should never be relied upon by other contracts.
  */
 contract LightGeneralizedTCRView {
-    using RLPReader for RLPReader.RLPItem;
-    using RLPReader for bytes;
-    using BytesLib for bytes;
-
     struct QueryResult {
         bytes32 ID;
         LightGeneralizedTCR.Status status;
