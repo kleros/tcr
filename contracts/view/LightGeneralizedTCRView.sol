@@ -9,13 +9,12 @@
 pragma solidity 0.5.17;
 pragma experimental ABIEncoderV2;
 
-import { LightGeneralizedTCR, IArbitrator } from "../LightGeneralizedTCR.sol";
-import { BytesLib } from "solidity-bytes-utils/contracts/BytesLib.sol";
-import { RLPReader } from "solidity-rlp/contracts/RLPReader.sol";
+import {LightGeneralizedTCR, IArbitrator} from "../LightGeneralizedTCR.sol";
 
 /* solium-disable max-len */
 /* solium-disable security/no-block-members */
-/* solium-disable security/no-send */ // It is the user responsibility to accept ETH.
+/* solium-disable security/no-send */
+// It is the user responsibility to accept ETH.
 
 /**
  *  @title LightGeneralizedTCRView
@@ -23,20 +22,16 @@ import { RLPReader } from "solidity-rlp/contracts/RLPReader.sol";
  *  This contract includes functions that can halt execution due to out-of-gas exceptions. Because of this it should never be relied upon by other contracts.
  */
 contract LightGeneralizedTCRView {
-    using RLPReader for RLPReader.RLPItem;
-    using RLPReader for bytes;
-    using BytesLib for bytes;
-
     struct QueryResult {
         bytes32 ID;
         LightGeneralizedTCR.Status status;
         bool disputed;
         bool resolved;
-        uint disputeID;
-        uint appealCost;
+        uint256 disputeID;
+        uint256 appealCost;
         bool appealed;
-        uint appealStart;
-        uint appealEnd;
+        uint256 appealStart;
+        uint256 appealEnd;
         LightGeneralizedTCR.Party ruling;
         address requester;
         address challenger;
@@ -44,28 +39,28 @@ contract LightGeneralizedTCRView {
         bytes arbitratorExtraData;
         LightGeneralizedTCR.Party currentRuling;
         bool[3] hasPaid;
-        uint feeRewards;
-        uint submissionTime;
-        uint[3] amountPaid;
+        uint256 feeRewards;
+        uint256 submissionTime;
+        uint256[3] amountPaid;
         IArbitrator.DisputeStatus disputeStatus;
-        uint numberOfRequests;
+        uint256 numberOfRequests;
     }
 
     struct ArbitrableData {
         address governor;
         address arbitrator;
         bytes arbitratorExtraData;
-        uint submissionBaseDeposit;
-        uint removalBaseDeposit;
-        uint submissionChallengeBaseDeposit;
-        uint removalChallengeBaseDeposit;
-        uint challengePeriodDuration;
-        uint metaEvidenceUpdates;
-        uint winnerStakeMultiplier;
-        uint loserStakeMultiplier;
-        uint sharedStakeMultiplier;
-        uint MULTIPLIER_DIVISOR;
-        uint arbitrationCost;
+        uint256 submissionBaseDeposit;
+        uint256 removalBaseDeposit;
+        uint256 submissionChallengeBaseDeposit;
+        uint256 removalChallengeBaseDeposit;
+        uint256 challengePeriodDuration;
+        uint256 metaEvidenceUpdates;
+        uint256 winnerStakeMultiplier;
+        uint256 loserStakeMultiplier;
+        uint256 sharedStakeMultiplier;
+        uint256 MULTIPLIER_DIVISOR;
+        uint256 arbitrationCost;
     }
 
     /** @dev Fetch arbitrable TCR data in a single call.
@@ -108,8 +103,8 @@ contract LightGeneralizedTCRView {
             appealStart: 0,
             appealEnd: 0,
             ruling: round.request.ruling,
-            requester: round.request.parties[uint(LightGeneralizedTCR.Party.Requester)],
-            challenger: round.request.parties[uint(LightGeneralizedTCR.Party.Challenger)],
+            requester: round.request.parties[uint256(LightGeneralizedTCR.Party.Requester)],
+            challenger: round.request.parties[uint256(LightGeneralizedTCR.Party.Challenger)],
             arbitrator: address(round.request.arbitrator),
             arbitratorExtraData: round.request.arbitratorExtraData,
             currentRuling: LightGeneralizedTCR.Party.None,
@@ -120,7 +115,10 @@ contract LightGeneralizedTCRView {
             disputeStatus: IArbitrator.DisputeStatus.Waiting,
             numberOfRequests: round.request.item.numberOfRequests
         });
-        if (round.request.disputed && round.request.arbitrator.disputeStatus(result.disputeID) == IArbitrator.DisputeStatus.Appealable) {
+        if (
+            round.request.disputed &&
+            round.request.arbitrator.disputeStatus(result.disputeID) == IArbitrator.DisputeStatus.Appealable
+        ) {
             result.currentRuling = LightGeneralizedTCR.Party(round.request.arbitrator.currentRuling(result.disputeID));
             result.disputeStatus = round.request.arbitrator.disputeStatus(result.disputeID);
             (result.appealStart, result.appealEnd) = round.request.arbitrator.appealPeriod(result.disputeID);
@@ -130,14 +128,14 @@ contract LightGeneralizedTCRView {
 
     struct ItemRequest {
         bool disputed;
-        uint disputeID;
-        uint submissionTime;
+        uint256 disputeID;
+        uint256 submissionTime;
         bool resolved;
         address requester;
         address challenger;
         address arbitrator;
         bytes arbitratorExtraData;
-        uint metaEvidenceID;
+        uint256 metaEvidenceID;
     }
 
     /** @dev Fetch all requests for an item.
@@ -149,18 +147,18 @@ contract LightGeneralizedTCRView {
         LightGeneralizedTCR gtcr = LightGeneralizedTCR(_address);
         ItemData memory itemData = getItemData(_address, _itemID);
         requests = new ItemRequest[](itemData.numberOfRequests);
-        for (uint i = 0; i < itemData.numberOfRequests; i++) {
+        for (uint256 i = 0; i < itemData.numberOfRequests; i++) {
             (
                 bool disputed,
-                uint disputeID,
-                uint submissionTime,
+                uint256 disputeID,
+                uint256 submissionTime,
                 bool resolved,
                 address payable[3] memory parties,
                 ,
                 ,
                 IArbitrator arbitrator,
                 bytes memory arbitratorExtraData,
-                uint metaEvidenceID
+                uint256 metaEvidenceID
             ) = gtcr.getRequestInfo(_itemID, i);
 
             // Sort requests by newest first.
@@ -169,8 +167,8 @@ contract LightGeneralizedTCRView {
                 disputeID: disputeID,
                 submissionTime: submissionTime,
                 resolved: resolved,
-                requester: parties[uint(LightGeneralizedTCR.Party.Requester)],
-                challenger: parties[uint(LightGeneralizedTCR.Party.Challenger)],
+                requester: parties[uint256(LightGeneralizedTCR.Party.Requester)],
+                challenger: parties[uint256(LightGeneralizedTCR.Party.Challenger)],
                 arbitrator: address(arbitrator),
                 arbitratorExtraData: arbitratorExtraData,
                 metaEvidenceID: metaEvidenceID
@@ -184,43 +182,60 @@ contract LightGeneralizedTCRView {
      *  @param _contributor The address of the contributor.
      *  @return The amount withdrawable per round per request.
      */
-    function availableRewards(address _address, bytes32 _itemID, address _contributor) external view returns (uint rewards) {
+    function availableRewards(
+        address _address,
+        bytes32 _itemID,
+        address _contributor
+    ) external view returns (uint256 rewards) {
         LightGeneralizedTCR gtcr = LightGeneralizedTCR(_address);
 
         // Using arrays to avoid stack limit.
-        uint[2] memory requestRoundCount = [uint(0), uint(0)];
-        uint[2] memory indexes = [uint(0), uint(0)]; // Request index and round index.
+        uint256[2] memory requestRoundCount = [uint256(0), uint256(0)];
+        uint256[2] memory indexes = [uint256(0), uint256(0)]; // Request index and round index.
 
-        (,requestRoundCount[0]) = gtcr.getItemInfo(_itemID);
+        (, requestRoundCount[0], ) = gtcr.getItemInfo(_itemID);
         for (indexes[0]; indexes[0] < requestRoundCount[0]; indexes[0]++) {
             LightGeneralizedTCR.Party ruling;
             bool resolved;
-            (,,, resolved,, requestRoundCount[1], ruling,,,) = gtcr.getRequestInfo(_itemID, indexes[0]);
+            (, , , resolved, , requestRoundCount[1], ruling, , , ) = gtcr.getRequestInfo(_itemID, indexes[0]);
             if (!resolved) continue;
             for (indexes[1]; indexes[1] < requestRoundCount[1]; indexes[1]++) {
-                (
-                    ,
-                    uint[3] memory amountPaid,
-                    bool[3] memory hasPaid,
-                    uint feeRewards
-                ) = gtcr.getRoundInfo(_itemID, indexes[0], indexes[1]);
+                (, uint256[3] memory amountPaid, bool[3] memory hasPaid, uint256 feeRewards) = gtcr.getRoundInfo(
+                    _itemID,
+                    indexes[0],
+                    indexes[1]
+                );
 
-                uint[3] memory roundContributions = gtcr.getContributions(_itemID, indexes[0], indexes[1], _contributor);
-                if (!hasPaid[uint(LightGeneralizedTCR.Party.Requester)] || !hasPaid[uint(LightGeneralizedTCR.Party.Challenger)]) {
+                uint256[3] memory roundContributions = gtcr.getContributions(
+                    _itemID,
+                    indexes[0],
+                    indexes[1],
+                    _contributor
+                );
+                if (
+                    !hasPaid[uint256(LightGeneralizedTCR.Party.Requester)] ||
+                    !hasPaid[uint256(LightGeneralizedTCR.Party.Challenger)]
+                ) {
                     // Amount reimbursable if not enough fees were raised to appeal the ruling.
-                    rewards += roundContributions[uint(LightGeneralizedTCR.Party.Requester)] + roundContributions[uint(LightGeneralizedTCR.Party.Challenger)];
+                    rewards +=
+                        roundContributions[uint256(LightGeneralizedTCR.Party.Requester)] +
+                        roundContributions[uint256(LightGeneralizedTCR.Party.Challenger)];
                 } else if (ruling == LightGeneralizedTCR.Party.None) {
                     // Reimbursable fees proportional if there aren't a winner and loser.
-                    rewards += amountPaid[uint(LightGeneralizedTCR.Party.Requester)] > 0
-                        ? (roundContributions[uint(LightGeneralizedTCR.Party.Requester)] * feeRewards) / (amountPaid[uint(LightGeneralizedTCR.Party.Challenger)] + amountPaid[uint(LightGeneralizedTCR.Party.Requester)])
+                    rewards += amountPaid[uint256(LightGeneralizedTCR.Party.Requester)] > 0
+                        ? (roundContributions[uint256(LightGeneralizedTCR.Party.Requester)] * feeRewards) /
+                            (amountPaid[uint256(LightGeneralizedTCR.Party.Challenger)] +
+                                amountPaid[uint256(LightGeneralizedTCR.Party.Requester)])
                         : 0;
-                    rewards += amountPaid[uint(LightGeneralizedTCR.Party.Challenger)] > 0
-                        ? (roundContributions[uint(LightGeneralizedTCR.Party.Challenger)] * feeRewards) / (amountPaid[uint(LightGeneralizedTCR.Party.Challenger)] + amountPaid[uint(LightGeneralizedTCR.Party.Requester)])
+                    rewards += amountPaid[uint256(LightGeneralizedTCR.Party.Challenger)] > 0
+                        ? (roundContributions[uint256(LightGeneralizedTCR.Party.Challenger)] * feeRewards) /
+                            (amountPaid[uint256(LightGeneralizedTCR.Party.Challenger)] +
+                                amountPaid[uint256(LightGeneralizedTCR.Party.Requester)])
                         : 0;
                 } else {
                     // Contributors to the winner take the rewards.
-                    rewards += amountPaid[uint(ruling)] > 0
-                        ? (roundContributions[uint(ruling)] * feeRewards) / amountPaid[uint(ruling)]
+                    rewards += amountPaid[uint256(ruling)] > 0
+                        ? (roundContributions[uint256(ruling)] * feeRewards) / amountPaid[uint256(ruling)]
                         : 0;
                 }
             }
@@ -231,17 +246,17 @@ contract LightGeneralizedTCRView {
     // Functions and structs below used mainly to avoid stack limit.
     struct ItemData {
         LightGeneralizedTCR.Status status;
-        uint numberOfRequests;
+        uint256 numberOfRequests;
     }
 
     struct RequestData {
         ItemData item;
         bool disputed;
-        uint disputeID;
-        uint submissionTime;
+        uint256 disputeID;
+        uint256 submissionTime;
         bool resolved;
         address payable[3] parties;
-        uint numberOfRounds;
+        uint256 numberOfRounds;
         LightGeneralizedTCR.Party ruling;
         IArbitrator arbitrator;
         bytes arbitratorExtraData;
@@ -250,9 +265,9 @@ contract LightGeneralizedTCRView {
     struct RoundData {
         RequestData request;
         bool appealed;
-        uint[3] amountPaid;
+        uint256[3] amountPaid;
         bool[3] hasPaid;
-        uint feeRewards;
+        uint256 feeRewards;
     }
 
     /** @dev Fetch data of the an item and return a struct.
@@ -260,12 +275,9 @@ contract LightGeneralizedTCRView {
      *  @param _itemID The ID of the item to query.
      *  @return The round data.
      */
-    function getItemData(address _address, bytes32 _itemID) public view returns(ItemData memory item) {
+    function getItemData(address _address, bytes32 _itemID) public view returns (ItemData memory item) {
         LightGeneralizedTCR gtcr = LightGeneralizedTCR(_address);
-        (
-            LightGeneralizedTCR.Status status,
-            uint numberOfRequests
-        ) = gtcr.getItemInfo(_itemID);
+        (LightGeneralizedTCR.Status status, uint256 numberOfRequests, ) = gtcr.getItemInfo(_itemID);
         item = ItemData(status, numberOfRequests);
     }
 
@@ -274,19 +286,20 @@ contract LightGeneralizedTCRView {
      *  @param _itemID The ID of the item to query.
      *  @return The round data.
      */
-    function getLatestRequestData(address _address, bytes32 _itemID) public view returns (RequestData memory request)  {
+    function getLatestRequestData(address _address, bytes32 _itemID) public view returns (RequestData memory request) {
         LightGeneralizedTCR gtcr = LightGeneralizedTCR(_address);
         ItemData memory item = getItemData(_address, _itemID);
         (
             bool disputed,
-            uint disputeID,
-            uint submissionTime,
+            uint256 disputeID,
+            uint256 submissionTime,
             bool resolved,
             address payable[3] memory parties,
-            uint numberOfRounds,
+            uint256 numberOfRounds,
             LightGeneralizedTCR.Party ruling,
             IArbitrator arbitrator,
             bytes memory arbitratorExtraData,
+
         ) = gtcr.getRequestInfo(_itemID, item.numberOfRequests - 1);
         request = RequestData(
             item,
@@ -307,21 +320,18 @@ contract LightGeneralizedTCRView {
      *  @param _itemID The ID of the item to query.
      *  @return The round data.
      */
-    function getLatestRoundRequestData(address _address, bytes32 _itemID) public view returns (RoundData memory round)  {
+    function getLatestRoundRequestData(address _address, bytes32 _itemID) public view returns (RoundData memory round) {
         LightGeneralizedTCR gtcr = LightGeneralizedTCR(_address);
+        (, , uint256 sumDeposit) = gtcr.getItemInfo(_itemID);
         RequestData memory request = getLatestRequestData(_address, _itemID);
-        (
-            bool appealed,
-            uint[3] memory amountPaid,
-            bool[3] memory hasPaid,
-            uint feeRewards
-        ) = gtcr.getRoundInfo(_itemID, request.item.numberOfRequests - 1, request.numberOfRounds - 1);
-        round = RoundData(
-            request,
-            appealed,
-            amountPaid,
-            hasPaid,
-            feeRewards
-        );
+
+        if (request.disputed) {
+            (bool appealed, uint256[3] memory amountPaid, bool[3] memory hasPaid, uint256 feeRewards) = gtcr
+                .getRoundInfo(_itemID, request.item.numberOfRequests - 1, request.numberOfRounds - 1);
+
+            round = RoundData(request, appealed, amountPaid, hasPaid, feeRewards);
+        } else {
+            round = RoundData(request, false, [0, sumDeposit, 0], [false, true, false], sumDeposit);
+        }
     }
 }
