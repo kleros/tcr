@@ -429,12 +429,12 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 evidenceGroupID = getEvidenceGroupID(_itemID, item.requestCount - 1);
         emit Dispute(arbitrator, disputeData.disputeID, metaEvidenceID, evidenceGroupID);
 
-        if (msg.value > totalCost) {
-            msg.sender.send(msg.value - totalCost);
-        }
-
         if (bytes(_evidence).length > 0) {
             emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
+        }
+
+        if (msg.value > totalCost) {
+            msg.sender.send(msg.value - totalCost);
         }
     }
 
