@@ -873,7 +873,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      * @param _requestID The ID of the request.
      * @return The evidenceGroupID
      */
-    function getEvidenceGroupID(bytes32 _itemID, uint256 _requestID) public returns (uint256) {
+    function getEvidenceGroupID(bytes32 _itemID, uint256 _requestID) public pure returns (uint256) {
         return uint256(keccak256(abi.encodePacked(_itemID, _requestID)));
     }
 
