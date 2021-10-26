@@ -390,7 +390,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         require(item.status > Status.Registered, "The item must have a pending request.");
 
-        Request storage request = item.requests[item.requestCount - 1];
+        uint256 lastRequestIndex = item.requestCount - 1;
+        Request storage request = item.requests[lastRequestIndex];
         require(
             block.timestamp - request.submissionTime <= challengePeriodDuration,
             "Challenges must occur during the challenge period."
@@ -403,10 +404,13 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         IArbitrator arbitrator = arbitrationParams.arbitrator;
 
         uint256 arbitrationCost = arbitrator.arbitrationCost(arbitrationParams.arbitratorExtraData);
-        uint256 challengerBaseDeposit = item.status == Status.RegistrationRequested
-            ? submissionChallengeBaseDeposit
-            : removalChallengeBaseDeposit;
-        uint256 totalCost = arbitrationCost.addCap(challengerBaseDeposit);
+        uint256 totalCost;
+        {
+            uint256 challengerBaseDeposit = item.status == Status.RegistrationRequested
+                ? submissionChallengeBaseDeposit
+                : removalChallengeBaseDeposit;
+            totalCost = arbitrationCost.addCap(challengerBaseDeposit);
+        }
 
         require(msg.value >= totalCost, "You must fully fund the request.");
 
@@ -426,7 +430,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         disputeData.roundCount++;
 
         uint256 metaEvidenceID = 2 * request.arbitrationParamsIndex + uint256(request.requestType);
-        uint256 evidenceGroupID = getEvidenceGroupID(_itemID, item.requestCount - 1);
+        uint256 evidenceGroupID = getEvidenceGroupID(_itemID, lastRequestIndex);
         emit Dispute(arbitrator, disputeData.disputeID, metaEvidenceID, evidenceGroupID);
 
         if (bytes(_evidence).length > 0) {
@@ -668,7 +672,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         emit Evidence(
             arbitrationParams.arbitrator,
-            getEvidenceGroupID(_itemID, item.requestCount - 1),
+            getEvidenceGroupID(_itemID, lastRequestIndex),
             msg.sender,
             _evidence
         );
