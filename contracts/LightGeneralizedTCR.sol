@@ -370,8 +370,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         // Emit evidence if it was provided.
         if (bytes(_evidence).length > 0) {
-            IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsChanges.length - 1].arbitrator;
-
             emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
         }
 
