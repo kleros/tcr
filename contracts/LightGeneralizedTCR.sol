@@ -2,7 +2,7 @@
  *  @authors: [@unknownunknown1*, @mtsalenc*, @hbarcelos*]
  *  @reviewers: [@fnanni-0*]
  *  @auditors: []
- *  @bounties: [{ link: https://github.com/kleros/tcr/issues/20, maxPayout: 25 ETH }]
+ *  @bounties: []
  *  @deployments: []
  */
 
@@ -80,13 +80,13 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         DisputeStatus status; // The current status of the dispute.
         Party ruling; // The ruling given to a dispute. Only set after it has been resolved.
         uint240 roundCount; // The number of rounds.
-        mapping(uint256 => Round) rounds; // Data bout the different dispute rounds. rounds[roundId].
+        mapping(uint256 => Round) rounds; // Data of the different dispute rounds. rounds[roundId].
     }
 
     struct Round {
-        uint256[3] amountPaid; // Tracks the sum paid for each Party in this round. Includes arbitration fees, fee stakes and deposits.
-        bool[3] hasPaid; // True if the Party has fully paid its fee in this round.
+        Party sideFunded; // Stores the side that successfully paid the appeal fees in the latest round. Note that if both sides have paid a new round is created.
         uint256 feeRewards; // Sum of reimbursable fees and stake rewards available to the parties that made contributions to the side that ultimately wins a dispute.
+        uint256[3] amountPaid; // Tracks the sum paid for each Party in this round.
         mapping(address => uint256[3]) contributions; // Maps contributors to their contributions for each side in the form contributions[address][party].
     }
 
@@ -110,7 +110,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     uint256 public submissionChallengeBaseDeposit; // The base deposit to challenge a submission.
     uint256 public removalChallengeBaseDeposit; // The base deposit to challenge a removal request.
     uint256 public challengePeriodDuration; // The time after which a request becomes executable if not challenged.
-    uint256 public metaEvidenceUpdates; // The number of times the meta evidence has been updated. Used to track the latest meta evidence ID.
 
     // Multipliers are in basis points.
     uint256 public winnerStakeMultiplier; // Multiplier for calculating the fee stake paid by the party that won the previous round.
@@ -138,35 +137,35 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     /* Events */
 
     /**
-     *  @dev Emitted when a party makes a request, raises a dispute or when a request is resolved.
-     *  @param _itemID The ID of the affected item.
-     *  @param _updatedDirectly Whether this was emitted in either `addItemDirectly` or `removeItemDirectly`. This is used in the subgraph.
+     * @dev Emitted when a party makes a request, raises a dispute or when a request is resolved.
+     * @param _itemID The ID of the affected item.
+     * @param _updatedDirectly Whether this was emitted in either `addItemDirectly` or `removeItemDirectly`. This is used in the subgraph.
      */
     event ItemStatusChange(bytes32 indexed _itemID, bool _updatedDirectly);
 
     /**
-     *  @dev Emitted when someone submits an item for the first time.
-     *  @param _itemID The ID of the new item.
-     *  @param _data The item data URI.
-     *  @param _addedDirectly Whether the item was added via `addItemDirectly`.
+     * @dev Emitted when someone submits an item for the first time.
+     * @param _itemID The ID of the new item.
+     * @param _data The item data URI.
+     * @param _addedDirectly Whether the item was added via `addItemDirectly`.
      */
     event NewItem(bytes32 indexed _itemID, string _data, bool _addedDirectly);
 
     /**
-     *  @dev Emitted when someone submits a request.
-     *  @param _itemID The ID of the affected item.
-     *  @param _evidenceGroupID Unique identifier of the evidence group the evidence belongs to.
+     * @dev Emitted when someone submits a request.
+     * @param _itemID The ID of the affected item.
+     * @param _evidenceGroupID Unique identifier of the evidence group the evidence belongs to.
      */
     event RequestSubmitted(bytes32 indexed _itemID, uint256 _evidenceGroupID);
 
     /**
-     *  @dev Emitted when a party contributes to an appeal. The roundID assumes the initial request and challenge deposits are the first round. This is done so indexers can know more information about the contribution without using call handlers.
-     *  @param _itemID The ID of the item.
-     *  @param _requestID The index of the request that received the contribution.
-     *  @param _roundID The index + 1 of the round that received the contribution.
-     *  @param _contributor The address making the contribution.
-     *  @param _contribution How much of the contribution was accepted.
-     *  @param _side The party receiving the contribution.
+     * @dev Emitted when a party contributes to an appeal. The roundID assumes the initial request and challenge deposits are the first round. This is done so indexers can know more information about the contribution without using call handlers.
+     * @param _itemID The ID of the item.
+     * @param _requestID The index of the request that received the contribution.
+     * @param _roundID The index of the round that received the contribution.
+     * @param _contributor The address making the contribution.
+     * @param _contribution How much of the contribution was accepted.
+     * @param _side The party receiving the contribution.
      */
     event Contribution(
         bytes32 indexed _itemID,
@@ -177,17 +176,19 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         Party _side
     );
 
-    /** @dev Emitted when the address of the connected TCR is set. The connected TCR is an instance of the Generalized TCR contract where each item is the address of a TCR related to this one.
-     *  @param _connectedTCR The address of the connected TCR.
+    /**
+     * @dev Emitted when the address of the connected TCR is set. The connected TCR is an instance of the Generalized TCR contract where each item is the address of a TCR related to this one.
+     * @param _connectedTCR The address of the connected TCR.
      */
     event ConnectedTCRSet(address indexed _connectedTCR);
 
-    /** @dev Emitted when someone withdraws more than 0 rewards.
-     *  @param _beneficiary The address that made contributions to a request.
-     *  @param _itemID The ID of the item submission to withdraw from.
-     *  @param _request The request from which to withdraw.
-     *  @param _round The round from which to withdraw.
-     *  @param _reward The amount withdrawn.
+    /**
+     * @dev Emitted when someone withdraws more than 0 rewards.
+     * @param _beneficiary The address that made contributions to a request.
+     * @param _itemID The ID of the item submission to withdraw from.
+     * @param _request The request from which to withdraw.
+     * @param _round The round from which to withdraw.
+     * @param _reward The amount withdrawn.
      */
     event RewardWithdrawn(
         address indexed _beneficiary,
@@ -200,24 +201,24 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     constructor() public {}
 
     /**
-     *  @dev Initialize the arbitrable curated registry.
-     *  @param _arbitrator Arbitrator to resolve potential disputes. The arbitrator is trusted to support appeal periods and not reenter.
-     *  @param _arbitratorExtraData Extra data for the trusted arbitrator contract.
-     *  @param _connectedTCR The address of the TCR that stores related TCR addresses. This parameter can be left empty.
-     *  @param _registrationMetaEvidence The URI of the meta evidence object for registration requests.
-     *  @param _clearingMetaEvidence The URI of the meta evidence object for clearing requests.
-     *  @param _governor The trusted governor of this contract.
-     *  @param _baseDeposits The base deposits for requests/challenges as follows:
-     *  - The base deposit to submit an item.
-     *  - The base deposit to remove an item.
-     *  - The base deposit to challenge a submission.
-     *  - The base deposit to challenge a removal request.
-     *  @param _challengePeriodDuration The time in seconds parties have to challenge a request.
-     *  @param _stakeMultipliers Multipliers of the arbitration cost in basis points (see MULTIPLIER_DIVISOR) as follows:
-     *  - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round (e.g. when the arbitrator refused to arbitrate).
-     *  - The multiplier applied to the winner's fee stake for the subsequent round.
-     *  - The multiplier applied to the loser's fee stake for the subsequent round.
-     *  @param _relayerContract The address of the relay contract to add/remove items directly.
+     * @dev Initialize the arbitrable curated registry.
+     * @param _arbitrator Arbitrator to resolve potential disputes. The arbitrator is trusted to support appeal periods and not reenter.
+     * @param _arbitratorExtraData Extra data for the trusted arbitrator contract.
+     * @param _connectedTCR The address of the TCR that stores related TCR addresses. This parameter can be left empty.
+     * @param _registrationMetaEvidence The URI of the meta evidence object for registration requests.
+     * @param _clearingMetaEvidence The URI of the meta evidence object for clearing requests.
+     * @param _governor The trusted governor of this contract.
+     * @param _baseDeposits The base deposits for requests/challenges as follows:
+     * - The base deposit to submit an item.
+     * - The base deposit to remove an item.
+     * - The base deposit to challenge a submission.
+     * - The base deposit to challenge a removal request.
+     * @param _challengePeriodDuration The time in seconds parties have to challenge a request.
+     * @param _stakeMultipliers Multipliers of the arbitration cost in basis points (see MULTIPLIER_DIVISOR) as follows:
+     * - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round (e.g. when the arbitrator refused to arbitrate).
+     * - The multiplier applied to the winner's fee stake for the subsequent round.
+     * - The multiplier applied to the loser's fee stake for the subsequent round.
+     * @param _relayerContract The address of the relay contract to add/remove items directly.
      */
     function initialize(
         IArbitrator _arbitrator,
@@ -257,8 +258,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     // *       Requests       * //
     // ************************ //
 
-    /** @dev Directly add an item to the list bypassing request-challenge. Can only be used by the relay contract.
-     *  @param _item The URI to the item data.
+    /**
+     * @dev Directly add an item to the list bypassing request-challenge. Can only be used by the relay contract.
+     * @param _item The URI to the item data.
      */
     function addItemDirectly(string calldata _item) external onlyRelayer {
         bytes32 itemID = keccak256(abi.encodePacked(_item));
@@ -266,15 +268,18 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(item.status == Status.Absent, "Item must be absent to be added.");
 
         // Note that if the item is added directly once, the next time it is added it will emit this event again.
-        if (item.requestCount == 0) emit NewItem(itemID, _item, true);
+        if (item.requestCount == 0) {
+            emit NewItem(itemID, _item, true);
+        }
 
         item.status = Status.Registered;
 
         emit ItemStatusChange(itemID, true);
     }
 
-    /** @dev Directly remove an item from the list bypassing request-challenge. Can only be used by the relay contract.
-     *  @param _itemID The ID of the item to remove.
+    /**
+     * @dev Directly remove an item from the list bypassing request-challenge. Can only be used by the relay contract.
+     * @param _itemID The ID of the item to remove.
      */
     function removeItemDirectly(bytes32 _itemID) external onlyRelayer {
         Item storage item = items[_itemID];
@@ -285,47 +290,105 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         emit ItemStatusChange(_itemID, true);
     }
 
-    /** @dev Submit a request to register an item. Accepts enough ETH to cover the deposit, reimburses the rest.
-     *  @param _item The URI to the item data.
+    /**
+     * @dev Submit a request to register an item. Accepts enough ETH to cover the deposit, reimburses the rest.
+     * @param _item The URI to the item data.
      */
     function addItem(string calldata _item) external payable {
         bytes32 itemID = keccak256(abi.encodePacked(_item));
         Item storage item = items[itemID];
+
+        // Extremely unlikely, but we check that for correctness sake.
+        require(item.requestCount < uint120(-1), "Too many requests for item.");
         require(item.status == Status.Absent, "Item must be absent to be added.");
 
         // Note that if the item was added previously using `addItemDirectly`, the event will be emitted again here.
-        if (item.requestCount == 0) emit NewItem(itemID, _item, false);
+        if (item.requestCount == 0) {
+            emit NewItem(itemID, _item, false);
+        }
 
-        requestStatusChange(itemID, submissionBaseDeposit);
+        Request storage request = item.requests[item.requestCount++];
+        uint256 arbitrationParamsIndex = arbitrationParamsChanges.length - 1;
+        IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsIndex].arbitrator;
+        bytes storage arbitratorExtraData = arbitrationParamsChanges[arbitrationParamsIndex].arbitratorExtraData;
+
+        uint256 arbitrationCost = arbitrator.arbitrationCost(arbitratorExtraData);
+        uint256 totalCost = arbitrationCost.addCap(submissionBaseDeposit);
+        require(msg.value >= totalCost, "You must fully fund the request.");
+
+        // Casting is safe here because this line will never be executed in case
+        // totalCost > type(uint128).max, since it would be an unpayable value.
+        item.sumDeposit = uint128(totalCost);
+        item.status = Status.RegistrationRequested;
+
+        request.requestType = RequestType.Registration;
+        request.submissionTime = uint64(block.timestamp);
+        request.arbitrationParamsIndex = uint24(arbitrationParamsIndex);
+        request.requester = msg.sender;
+
+        emit RequestSubmitted(itemID, getEvidenceGroupID(itemID, item.requestCount - 1));
+
+        if (msg.value > totalCost) {
+            msg.sender.send(msg.value - totalCost);
+        }
     }
 
-    /** @dev Submit a request to remove an item from the list. Accepts enough ETH to cover the deposit, reimburses the rest.
-     *  @param _itemID The ID of the item to remove.
-     *  @param _evidence A link to an evidence using its URI. Ignored if not provided.
+    /**
+     * @dev Submit a request to remove an item from the list. Accepts enough ETH to cover the deposit, reimburses the rest.
+     * @param _itemID The ID of the item to remove.
+     * @param _evidence A link to an evidence using its URI. Ignored if not provided.
      */
     function removeItem(bytes32 _itemID, string calldata _evidence) external payable {
         Item storage item = items[_itemID];
+
+        // Extremely unlikely, but we check that for correctness sake.
+        require(item.requestCount < uint120(-1), "Too many requests for item.");
         require(item.status == Status.Registered, "Item must be registered to be removed.");
+
+        Request storage request = item.requests[item.requestCount++];
+        uint256 arbitrationParamsIndex = arbitrationParamsChanges.length - 1;
+        IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsIndex].arbitrator;
+        bytes storage arbitratorExtraData = arbitrationParamsChanges[arbitrationParamsIndex].arbitratorExtraData;
+
+        uint256 arbitrationCost = arbitrator.arbitrationCost(arbitratorExtraData);
+        uint256 totalCost = arbitrationCost.addCap(removalBaseDeposit);
+        require(msg.value >= totalCost, "You must fully fund the request.");
+
+        // Casting is safe here because this line will never be executed in case
+        // totalCost > type(uint128).max, since it would be an unpayable value.
+        item.sumDeposit = uint128(totalCost);
+        item.status = Status.ClearingRequested;
+
+        request.submissionTime = uint64(block.timestamp);
+        request.arbitrationParamsIndex = uint24(arbitrationParamsIndex);
+        request.requester = msg.sender;
+        request.requestType = RequestType.Clearing;
+
+        uint256 evidenceGroupID = getEvidenceGroupID(_itemID, item.requestCount - 1);
+
+        emit RequestSubmitted(_itemID, evidenceGroupID);
 
         // Emit evidence if it was provided.
         if (bytes(_evidence).length > 0) {
-            // Using `requestCount` instead of `requestCount - 1` because a new request will be added on requestStatusChange().
-            uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount))));
             IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsChanges.length - 1].arbitrator;
+
             emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
         }
 
-        requestStatusChange(_itemID, removalBaseDeposit);
+        if (msg.value > totalCost) {
+            msg.sender.send(msg.value - totalCost);
+        }
     }
 
-    /** @dev Challenges the request of the item. Accepts enough ETH to cover the deposit, reimburses the rest.
-     *  @param _itemID The ID of the item which request to challenge.
-     *  @param _evidence A link to an evidence using its URI. Ignored if not provided.
+    /**
+     * @dev Challenges the request of the item. Accepts enough ETH to cover the deposit, reimburses the rest.
+     * @param _itemID The ID of the item which request to challenge.
+     * @param _evidence A link to an evidence using its URI. Ignored if not provided.
      */
     function challengeRequest(bytes32 _itemID, string calldata _evidence) external payable {
         Item storage item = items[_itemID];
 
-        require(item.status >= Status.RegistrationRequested, "The item must have a pending request.");
+        require(item.status > Status.Registered, "The item must have a pending request.");
 
         Request storage request = item.requests[item.requestCount - 1];
         require(
@@ -337,13 +400,15 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(disputeData.status == DisputeStatus.None, "The request should not have already been disputed.");
 
         ArbitrationParams storage arbitrationParams = arbitrationParamsChanges[request.arbitrationParamsIndex];
+        IArbitrator arbitrator = arbitrationParams.arbitrator;
 
-        uint256 arbitrationCost = arbitrationParams.arbitrator.arbitrationCost(arbitrationParams.arbitratorExtraData);
+        uint256 arbitrationCost = arbitrator.arbitrationCost(arbitrationParams.arbitratorExtraData);
         uint256 challengerBaseDeposit = item.status == Status.RegistrationRequested
             ? submissionChallengeBaseDeposit
             : removalChallengeBaseDeposit;
         uint256 totalCost = arbitrationCost.addCap(challengerBaseDeposit);
-        require(msg.value >= totalCost, "You must fully fund your side.");
+
+        require(msg.value >= totalCost, "You must fully fund the request.");
 
         request.challenger = msg.sender;
         // Casting is safe here because this line will never be executed in case
@@ -351,43 +416,41 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         item.sumDeposit = item.sumDeposit.addCap(uint128(totalCost)).subCap(uint128(arbitrationCost));
 
         // Raise a dispute.
-        disputeData.disputeID = arbitrationParams.arbitrator.createDispute.value(arbitrationCost)(
+        disputeData.disputeID = arbitrator.createDispute.value(arbitrationCost)(
             RULING_OPTIONS,
             arbitrationParams.arbitratorExtraData
         );
-        arbitratorDisputeIDToItemID[address(arbitrationParams.arbitrator)][disputeData.disputeID] = _itemID;
+        arbitratorDisputeIDToItemID[address(arbitrator)][disputeData.disputeID] = _itemID;
 
         disputeData.status = DisputeStatus.AwaitingRuling;
         disputeData.roundCount++;
 
         uint256 metaEvidenceID = 2 * request.arbitrationParamsIndex + uint256(request.requestType);
-        uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount - 1))));
-        emit Dispute(arbitrationParams.arbitrator, disputeData.disputeID, metaEvidenceID, evidenceGroupID);
-
-        if (bytes(_evidence).length > 0) {
-            emit Evidence(arbitrationParams.arbitrator, evidenceGroupID, msg.sender, _evidence);
-        }
+        uint256 evidenceGroupID = getEvidenceGroupID(_itemID, item.requestCount - 1);
+        emit Dispute(arbitrator, disputeData.disputeID, metaEvidenceID, evidenceGroupID);
 
         if (msg.value > totalCost) {
             msg.sender.send(msg.value - totalCost);
         }
 
-        emit Contribution(_itemID, item.requestCount - 1, 0, msg.sender, totalCost, Party.Challenger);
+        if (bytes(_evidence).length > 0) {
+            emit Evidence(arbitrator, evidenceGroupID, msg.sender, _evidence);
+        }
     }
 
-    /** @dev Takes up to the total amount required to fund a side of an appeal. Reimburses the rest. Creates an appeal if both sides are fully funded.
-     *  @param _itemID The ID of the item which request to fund.
-     *  @param _side The recipient of the contribution.
+    /**
+     * @dev Takes up to the total amount required to fund a side of an appeal. Reimburses the rest. Creates an appeal if both sides are fully funded.
+     * @param _itemID The ID of the item which request to fund.
+     * @param _side The recipient of the contribution.
      */
     function fundAppeal(bytes32 _itemID, Party _side) external payable {
-        require(_side == Party.Requester || _side == Party.Challenger, "Invalid side.");
-        require(
-            items[_itemID].status == Status.RegistrationRequested || items[_itemID].status == Status.ClearingRequested,
-            "The item must have a pending request."
-        );
+        Item storage item = items[_itemID];
 
-        uint256 lastRequestIndex = items[_itemID].requestCount - 1;
-        Request storage request = items[_itemID].requests[lastRequestIndex];
+        require(_side > Party.None, "Invalid side.");
+        require(item.status > Status.Registered, "The item must have a pending request.");
+
+        uint256 lastRequestIndex = item.requestCount - 1;
+        Request storage request = item.requests[lastRequestIndex];
 
         DisputeData storage disputeData = requestsDisputeData[_itemID][lastRequestIndex];
         require(
@@ -396,22 +459,21 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         );
 
         ArbitrationParams storage arbitrationParams = arbitrationParamsChanges[request.arbitrationParamsIndex];
+        IArbitrator arbitrator = arbitrationParams.arbitrator;
 
         uint256 lastRoundIndex = disputeData.roundCount - 1;
         Round storage round = disputeData.rounds[lastRoundIndex];
-        require(!round.hasPaid[uint256(_side)], "Side already fully funded.");
+        require(round.sideFunded != _side, "Side already fully funded.");
 
         uint256 multiplier;
         {
-            (uint256 appealPeriodStart, uint256 appealPeriodEnd) = arbitrationParams.arbitrator.appealPeriod(
-                disputeData.disputeID
-            );
+            (uint256 appealPeriodStart, uint256 appealPeriodEnd) = arbitrator.appealPeriod(disputeData.disputeID);
             require(
                 now >= appealPeriodStart && now < appealPeriodEnd,
                 "Contributions must be made within the appeal period."
             );
 
-            Party winner = Party(arbitrationParams.arbitrator.currentRuling(disputeData.disputeID));
+            Party winner = Party(arbitrator.currentRuling(disputeData.disputeID));
             if (winner == Party.None) {
                 multiplier = sharedStakeMultiplier;
             } else if (_side == winner) {
@@ -425,33 +487,33 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             }
         }
 
-        uint256 appealCost = arbitrationParams.arbitrator.appealCost(
-            disputeData.disputeID,
-            arbitrationParams.arbitratorExtraData
-        );
+        uint256 appealCost = arbitrator.appealCost(disputeData.disputeID, arbitrationParams.arbitratorExtraData);
         uint256 totalCost = appealCost.addCap((appealCost.mulCap(multiplier)) / MULTIPLIER_DIVISOR);
         contribute(_itemID, lastRequestIndex, lastRoundIndex, _side, msg.sender, msg.value, totalCost);
 
-        if (round.amountPaid[uint256(_side)] >= totalCost) {
-            round.hasPaid[uint256(_side)] = true;
-        }
+        bool isCurrentSideFunded = round.amountPaid[uint256(_side)] >= totalCost;
 
-        // Raise appeal if both sides are fully funded.
-        if (round.hasPaid[uint256(Party.Challenger)] && round.hasPaid[uint256(Party.Requester)]) {
-            arbitrationParams.arbitrator.appeal.value(appealCost)(
-                disputeData.disputeID,
-                arbitrationParams.arbitratorExtraData
-            );
-            disputeData.roundCount++;
-            round.feeRewards = round.feeRewards.subCap(appealCost);
+        if (isCurrentSideFunded) {
+            if (round.sideFunded == Party.None) {
+                round.sideFunded = _side;
+            } else {
+                // Resets the value because both sides are funded.
+                round.sideFunded = Party.None;
+
+                // Raise appeal if both sides are fully funded.
+                arbitrator.appeal.value(appealCost)(disputeData.disputeID, arbitrationParams.arbitratorExtraData);
+                disputeData.roundCount++;
+                round.feeRewards = round.feeRewards.subCap(appealCost);
+            }
         }
     }
 
-    /** @dev Reimburses contributions if no disputes were raised. If a dispute was raised, sends the fee stake rewards and reimbursements proportionally to the contributions made to the winner of a dispute.
-     *  @param _beneficiary The address that made contributions to a request.
-     *  @param _itemID The ID of the item submission to withdraw from.
-     *  @param _requestID The request from which to withdraw from.
-     *  @param _roundID The round from which to withdraw from.
+    /**
+     * @dev If a dispute was raised, sends the fee stake rewards and reimbursements proportionally to the contributions made to the winner of a dispute.
+     * @param _beneficiary The address that made contributions to a request.
+     * @param _itemID The ID of the item submission to withdraw from.
+     * @param _requestID The request from which to withdraw from.
+     * @param _roundID The round from which to withdraw from.
      */
     function withdrawFeesAndRewards(
         address payable _beneficiary,
@@ -472,17 +534,11 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
                 round.contributions[_beneficiary][uint256(Party.Requester)] +
                 round.contributions[_beneficiary][uint256(Party.Challenger)];
         } else if (disputeData.ruling == Party.None) {
-            // Reimburse unspent fees proportionally if there is no winner or loser.
-            uint256 rewardRequester = round.amountPaid[uint256(Party.Requester)] > 0
-                ? (round.contributions[_beneficiary][uint256(Party.Requester)] * round.feeRewards) /
-                    (round.amountPaid[uint256(Party.Challenger)] + round.amountPaid[uint256(Party.Requester)])
-                : 0;
-            uint256 rewardChallenger = round.amountPaid[uint256(Party.Challenger)] > 0
-                ? (round.contributions[_beneficiary][uint256(Party.Challenger)] * round.feeRewards) /
-                    (round.amountPaid[uint256(Party.Challenger)] + round.amountPaid[uint256(Party.Requester)])
-                : 0;
-
-            reward = rewardRequester + rewardChallenger;
+            uint256 totalFeesInRound = round.amountPaid[uint256(Party.Challenger)] +
+                round.amountPaid[uint256(Party.Requester)];
+            uint256 claimableFees = round.contributions[_beneficiary][uint256(Party.Challenger)] +
+                round.contributions[_beneficiary][uint256(Party.Requester)];
+            reward = totalFeesInRound > 0 ? (claimableFees * round.feeRewards) / totalFeesInRound : 0;
         } else {
             // Reward the winner.
             reward = round.amountPaid[uint256(disputeData.ruling)] > 0
@@ -499,8 +555,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         }
     }
 
-    /** @dev Executes an unchallenged request if the challenge period has passed.
-     *  @param _itemID The ID of the item to execute.
+    /**
+     * @dev Executes an unchallenged request if the challenge period has passed.
+     * @param _itemID The ID of the item to execute.
      */
     function executeRequest(bytes32 _itemID) external {
         Item storage item = items[_itemID];
@@ -531,10 +588,11 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         }
     }
 
-    /** @dev Give a ruling for a dispute. Can only be called by the arbitrator. TRUSTED.
-     *  Accounts for the situation where the winner loses a case due to paying less appeal fees than expected.
-     *  @param _disputeID ID of the dispute in the arbitrator contract.
-     *  @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Refused to arbitrate".
+    /**
+     * @dev Give a ruling for a dispute. Can only be called by the arbitrator. TRUSTED.
+     * Accounts for the situation where the winner loses a case due to paying less appeal fees than expected.
+     * @param _disputeID ID of the dispute in the arbitrator contract.
+     * @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Refused to arbitrate".
      */
     function rule(uint256 _disputeID, uint256 _ruling) public {
         require(_ruling <= RULING_OPTIONS, "Invalid ruling option");
@@ -549,7 +607,19 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         require(address(arbitrationParams.arbitrator) == msg.sender, "Only the arbitrator can give a ruling");
         require(disputeData.status == DisputeStatus.AwaitingRuling, "The request must not be resolved.");
 
-        uint256 finalRuling = _getFinalRuling(disputeData, _ruling);
+        uint256 finalRuling;
+        {
+            Round storage round = disputeData.rounds[disputeData.roundCount - 1];
+            // The ruling is inverted if the loser paid its fees.
+            if (round.sideFunded == Party.Requester) {
+                // If one side paid its fees, the ruling is in its favor. Note that if the other side had also paid, an appeal would have been created.
+                finalRuling = uint256(Party.Requester);
+            } else if (round.sideFunded == Party.Challenger) {
+                finalRuling = uint256(Party.Challenger);
+            } else {
+                finalRuling = _ruling;
+            }
+        }
         emit Ruling(IArbitrator(msg.sender), _disputeID, finalRuling);
 
         Party winner = Party(finalRuling);
@@ -557,155 +627,140 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         disputeData.status = DisputeStatus.Resolved;
         disputeData.ruling = winner;
 
-        if (winner == Party.Requester) {
-            // Execute Request.
-            if (item.status == Status.RegistrationRequested) {
-                item.status = Status.Registered;
-            } else if (item.status == Status.ClearingRequested) {
-                item.status = Status.Absent;
-            }
-        } else {
-            if (item.status == Status.RegistrationRequested) {
-                item.status = Status.Absent;
-            } else if (item.status == Status.ClearingRequested) {
-                item.status = Status.Registered;
-            }
-        }
-        emit ItemStatusChange(itemID, false);
-
         uint256 sumDeposit = item.sumDeposit;
         item.sumDeposit = 0;
 
         if (winner == Party.None) {
-            // Since nobody has won, then we reimburse both parties equally.
+            // If the arbitrator refuse to rule, then the item status should be the same it was before the request.
+            // Regarding item.status this is equivalent to the challenger winning the dispute.
+            item.status = item.status == Status.RegistrationRequested ? Status.Absent : Status.Registered;
 
+            // Since nobody has won, then we reimburse both parties equally.
             // If item.sumDeposit is odd, 1 wei will remain in the contract balance.
             uint256 halfSumDeposit = sumDeposit / 2;
 
             request.requester.send(halfSumDeposit);
             request.challenger.send(halfSumDeposit);
+        } else if (winner == Party.Requester) {
+            item.status = item.status == Status.RegistrationRequested ? Status.Registered : Status.Absent;
+
+            request.requester.send(sumDeposit);
         } else {
-            // Reimburse the winner.
-            address payable winnerAddress = winner == Party.Requester ? request.requester : request.challenger;
-            winnerAddress.send(sumDeposit);
+            item.status = item.status == Status.RegistrationRequested ? Status.Absent : Status.Registered;
+
+            request.challenger.send(sumDeposit);
         }
+
+        emit ItemStatusChange(itemID, false);
     }
 
     /**
-     * @notice Gets the final ruling depending on the funding status of the latest round.
-     * @dev If only one of the sides has funded itself, it should be the winner, no matter
-     *  what is the ruling provided by the arbitrator.
-     * @param _disputeData The dispute data.
-     * @param _ruling Ruling given by the arbitrator.
-     * @return The final ruling.
-     */
-    function _getFinalRuling(DisputeData storage _disputeData, uint256 _ruling) internal view returns (uint256) {
-        Round storage round = _disputeData.rounds[_disputeData.roundCount - 1];
-        // The ruling is inverted if the loser paid its fees.
-        if (round.hasPaid[uint256(Party.Requester)]) {
-            // If one side paid its fees, the ruling is in its favor. Note that if the other side had also paid, an appeal would have been created.
-            return uint256(Party.Requester);
-        } else if (round.hasPaid[uint256(Party.Challenger)]) {
-            return uint256(Party.Challenger);
-        }
-
-        return _ruling;
-    }
-
-    /** @dev Submit a reference to evidence. EVENT.
-     *  @param _itemID The ID of the item which the evidence is related to.
-     *  @param _evidence A link to an evidence using its URI.
+     * @dev Submit a reference to evidence. EVENT.
+     * @param _itemID The ID of the item which the evidence is related to.
+     * @param _evidence A link to an evidence using its URI.
      */
     function submitEvidence(bytes32 _itemID, string calldata _evidence) external {
         Item storage item = items[_itemID];
         uint256 lastRequestIndex = item.requestCount - 1;
 
-        DisputeData storage disputeData = requestsDisputeData[_itemID][lastRequestIndex];
-        require(disputeData.status == DisputeStatus.AwaitingRuling, "The dispute must not already be resolved.");
-
         Request storage request = item.requests[lastRequestIndex];
         ArbitrationParams storage arbitrationParams = arbitrationParamsChanges[request.arbitrationParamsIndex];
 
-        uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount - 1))));
-        emit Evidence(arbitrationParams.arbitrator, evidenceGroupID, msg.sender, _evidence);
+        emit Evidence(
+            arbitrationParams.arbitrator,
+            getEvidenceGroupID(_itemID, item.requestCount - 1),
+            msg.sender,
+            _evidence
+        );
     }
 
     // ************************ //
     // *      Governance      * //
     // ************************ //
 
-    /** @dev Change the duration of the challenge period.
-     *  @param _challengePeriodDuration The new duration of the challenge period.
+    /**
+     * @dev Change the duration of the challenge period.
+     * @param _challengePeriodDuration The new duration of the challenge period.
      */
     function changeChallengePeriodDuration(uint256 _challengePeriodDuration) external onlyGovernor {
         challengePeriodDuration = _challengePeriodDuration;
     }
 
-    /** @dev Change the base amount required as a deposit to submit an item.
-     *  @param _submissionBaseDeposit The new base amount of wei required to submit an item.
+    /**
+     * @dev Change the base amount required as a deposit to submit an item.
+     * @param _submissionBaseDeposit The new base amount of wei required to submit an item.
      */
     function changeSubmissionBaseDeposit(uint256 _submissionBaseDeposit) external onlyGovernor {
         submissionBaseDeposit = _submissionBaseDeposit;
     }
 
-    /** @dev Change the base amount required as a deposit to remove an item.
-     *  @param _removalBaseDeposit The new base amount of wei required to remove an item.
+    /**
+     * @dev Change the base amount required as a deposit to remove an item.
+     * @param _removalBaseDeposit The new base amount of wei required to remove an item.
      */
     function changeRemovalBaseDeposit(uint256 _removalBaseDeposit) external onlyGovernor {
         removalBaseDeposit = _removalBaseDeposit;
     }
 
-    /** @dev Change the base amount required as a deposit to challenge a submission.
-     *  @param _submissionChallengeBaseDeposit The new base amount of wei required to challenge a submission.
+    /**
+     * @dev Change the base amount required as a deposit to challenge a submission.
+     * @param _submissionChallengeBaseDeposit The new base amount of wei required to challenge a submission.
      */
     function changeSubmissionChallengeBaseDeposit(uint256 _submissionChallengeBaseDeposit) external onlyGovernor {
         submissionChallengeBaseDeposit = _submissionChallengeBaseDeposit;
     }
 
-    /** @dev Change the base amount required as a deposit to challenge a removal request.
-     *  @param _removalChallengeBaseDeposit The new base amount of wei required to challenge a removal request.
+    /**
+     * @dev Change the base amount required as a deposit to challenge a removal request.
+     * @param _removalChallengeBaseDeposit The new base amount of wei required to challenge a removal request.
      */
     function changeRemovalChallengeBaseDeposit(uint256 _removalChallengeBaseDeposit) external onlyGovernor {
         removalChallengeBaseDeposit = _removalChallengeBaseDeposit;
     }
 
-    /** @dev Change the governor of the curated registry.
-     *  @param _governor The address of the new governor.
+    /**
+     * @dev Change the governor of the curated registry.
+     * @param _governor The address of the new governor.
      */
     function changeGovernor(address _governor) external onlyGovernor {
         governor = _governor;
     }
 
-    /** @dev Change the proportion of arbitration fees that must be paid as fee stake by parties when there is no winner or loser.
-     *  @param _sharedStakeMultiplier Multiplier of arbitration fees that must be paid as fee stake. In basis points.
+    /**
+     * @dev Change the proportion of arbitration fees that must be paid as fee stake by parties when there is no winner or loser.
+     * @param _sharedStakeMultiplier Multiplier of arbitration fees that must be paid as fee stake. In basis points.
      */
     function changeSharedStakeMultiplier(uint256 _sharedStakeMultiplier) external onlyGovernor {
         sharedStakeMultiplier = _sharedStakeMultiplier;
     }
 
-    /** @dev Change the proportion of arbitration fees that must be paid as fee stake by the winner of the previous round.
-     *  @param _winnerStakeMultiplier Multiplier of arbitration fees that must be paid as fee stake. In basis points.
+    /**
+     * @dev Change the proportion of arbitration fees that must be paid as fee stake by the winner of the previous round.
+     * @param _winnerStakeMultiplier Multiplier of arbitration fees that must be paid as fee stake. In basis points.
      */
     function changeWinnerStakeMultiplier(uint256 _winnerStakeMultiplier) external onlyGovernor {
         winnerStakeMultiplier = _winnerStakeMultiplier;
     }
 
-    /** @dev Change the proportion of arbitration fees that must be paid as fee stake by the party that lost the previous round.
-     *  @param _loserStakeMultiplier Multiplier of arbitration fees that must be paid as fee stake. In basis points.
+    /**
+     * @dev Change the proportion of arbitration fees that must be paid as fee stake by the party that lost the previous round.
+     * @param _loserStakeMultiplier Multiplier of arbitration fees that must be paid as fee stake. In basis points.
      */
     function changeLoserStakeMultiplier(uint256 _loserStakeMultiplier) external onlyGovernor {
         loserStakeMultiplier = _loserStakeMultiplier;
     }
 
-    /** @dev Change the address of connectedTCR, the Generalized TCR instance that stores addresses of TCRs related to this one.
-     *  @param _connectedTCR The address of the connectedTCR contract to use.
+    /**
+     * @dev Change the address of connectedTCR, the Generalized TCR instance that stores addresses of TCRs related to this one.
+     * @param _connectedTCR The address of the connectedTCR contract to use.
      */
     function changeConnectedTCR(address _connectedTCR) external onlyGovernor {
         emit ConnectedTCRSet(_connectedTCR);
     }
 
-    /** @dev Change the address of the relay contract.
-     *  @param _relayerContract The new address of the relay contract.
+    /**
+     * @dev Change the address of the relay contract.
+     * @param _relayerContract The new address of the relay contract.
      */
     function changeRelayerContract(address _relayerContract) external onlyGovernor {
         relayerContract = _relayerContract;
@@ -753,6 +808,71 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         );
     }
 
+    /* Internal */
+
+    /**
+     * @dev Make a fee contribution.
+     * @param _itemID The item receiving the contribution.
+     * @param _requestID The request to contribute.
+     * @param _roundID The round to contribute.
+     * @param _side The side for which to contribute.
+     * @param _contributor The contributor.
+     * @param _amount The amount contributed.
+     * @param _totalRequired The total amount required for this side.
+     * @return The amount of appeal fees contributed.
+     */
+    function contribute(
+        bytes32 _itemID,
+        uint256 _requestID,
+        uint256 _roundID,
+        Party _side,
+        address payable _contributor,
+        uint256 _amount,
+        uint256 _totalRequired
+    ) internal {
+        Round storage round = requestsDisputeData[_itemID][_requestID].rounds[_roundID];
+        uint256 pendingAmount = _totalRequired.subCap(round.amountPaid[uint256(_side)]);
+
+        // Take up to the amount necessary to fund the current round at the current costs.
+        uint256 contribution; // Amount contributed.
+        uint256 remainingETH; // Remaining ETH to send back.
+        if (pendingAmount > _amount) {
+            contribution = _amount;
+        } else {
+            contribution = pendingAmount;
+            remainingETH = _amount - pendingAmount;
+        }
+        // (contribution, remainingETH) = calculateContribution(_amount, pendingAmount);
+
+        round.contributions[_contributor][uint256(_side)] += contribution;
+        round.amountPaid[uint256(_side)] += contribution;
+        round.feeRewards += contribution;
+
+        // Reimburse leftover ETH.
+        if (remainingETH > 0) {
+            // Deliberate use of send in order to not block the contract in case of reverting fallback.
+            _contributor.send(remainingETH);
+        }
+
+        if (contribution > 0) {
+            emit Contribution(_itemID, _requestID, _roundID, msg.sender, contribution, _side);
+        }
+    }
+
+    // ************************ //
+    // *       Getters        * //
+    // ************************ //
+
+    /**
+     * @dev Gets the evidengeGroupID for a given item and request.
+     * @param _itemID The ID of the item.
+     * @param _requestID The ID of the request.
+     * @return The evidenceGroupID
+     */
+    function getEvidenceGroupID(bytes32 _itemID, uint256 _requestID) public returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(_itemID, _requestID)));
+    }
+
     /**
      * @notice Gets the arbitrator for new requests.
      * @dev Gets the latest value in arbitrationParamsChanges.
@@ -771,125 +891,13 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         return arbitrationParamsChanges[arbitrationParamsChanges.length - 1].arbitratorExtraData;
     }
 
-    /* Internal */
-
-    /** @dev Submit a request to change item's status. Accepts enough ETH to cover the deposit, reimburses the rest.
-     *  @param _itemID The keccak256 hash of the item data.
-     *  @param _baseDeposit The base deposit for the request.
-     */
-    function requestStatusChange(bytes32 _itemID, uint256 _baseDeposit) internal {
-        Item storage item = items[_itemID];
-        // Extremely unlikely, but we check that for correctness sake.
-        require(item.requestCount < uint120(-1), "Too many requests for item.");
-
-        Request storage request = item.requests[item.requestCount++];
-        uint256 arbitrationParamsIndex = arbitrationParamsChanges.length - 1;
-        IArbitrator arbitrator = arbitrationParamsChanges[arbitrationParamsIndex].arbitrator;
-        bytes storage arbitratorExtraData = arbitrationParamsChanges[arbitrationParamsIndex].arbitratorExtraData;
-
-        uint256 arbitrationCost = arbitrator.arbitrationCost(arbitratorExtraData);
-        uint256 totalCost = arbitrationCost.addCap(_baseDeposit);
-        require(msg.value >= totalCost, "You must fully fund your side.");
-
-        // Casting is safe here because this line will never be executed in case
-        // totalCost > type(uint128).max, since it would be an unpayable value.
-        item.sumDeposit = uint128(totalCost);
-        request.submissionTime = uint64(block.timestamp);
-        request.arbitrationParamsIndex = uint24(arbitrationParamsIndex);
-        request.requester = msg.sender;
-
-        if (item.status == Status.Absent) {
-            item.status = Status.RegistrationRequested;
-            request.requestType = RequestType.Registration;
-        } else if (item.status == Status.Registered) {
-            item.status = Status.ClearingRequested;
-            request.requestType = RequestType.Clearing;
-        }
-
-        uint256 evidenceGroupID = uint256(keccak256(abi.encodePacked(_itemID, uint256(item.requestCount - 1))));
-        emit RequestSubmitted(_itemID, evidenceGroupID);
-
-        if (msg.value > totalCost) {
-            msg.sender.send(msg.value - totalCost);
-        }
-
-        emit Contribution(_itemID, item.requestCount - 1, 0, msg.sender, totalCost, Party.Requester);
-    }
-
-    /** @dev Returns the contribution value and remainder from available ETH and required amount.
-     *  @param _available The amount of ETH available for the contribution.
-     *  @param _requiredAmount The amount of ETH required for the contribution.
-     *  @return taken The amount of ETH taken.
-     *  @return remainder The amount of ETH left from the contribution.
-     */
-    function calculateContribution(uint256 _available, uint256 _requiredAmount)
-        internal
-        pure
-        returns (uint256 taken, uint256 remainder)
-    {
-        if (_requiredAmount > _available) {
-            return (_available, 0);
-        } else {
-            // Take whatever is available, return 0 as leftover ETH.
-            return (_requiredAmount, _available - _requiredAmount);
-        }
-    }
-
-    /** @dev Make a fee contribution.
-     *  @param _itemID The item receiving the contribution.
-     *  @param _requestID The request to contribute.
-     *  @param _roundID The round to contribute.
-     *  @param _side The side for which to contribute.
-     *  @param _contributor The contributor.
-     *  @param _amount The amount contributed.
-     *  @param _totalRequired The total amount required for this side.
-     *  @return The amount of appeal fees contributed.
-     */
-    function contribute(
-        bytes32 _itemID,
-        uint256 _requestID,
-        uint256 _roundID,
-        Party _side,
-        address payable _contributor,
-        uint256 _amount,
-        uint256 _totalRequired
-    ) internal returns (uint256) {
-        Round storage round = requestsDisputeData[_itemID][_requestID].rounds[_roundID];
-
-        // Take up to the amount necessary to fund the current round at the current costs.
-        uint256 contribution; // Amount contributed.
-        uint256 remainingETH; // Remaining ETH to send back.
-        (contribution, remainingETH) = calculateContribution(
-            _amount,
-            _totalRequired.subCap(round.amountPaid[uint256(_side)])
-        );
-        round.contributions[_contributor][uint256(_side)] += contribution;
-        round.amountPaid[uint256(_side)] += contribution;
-        round.feeRewards += contribution;
-
-        // Reimburse leftover ETH.
-        if (remainingETH > 0) {
-            // Deliberate use of send in order to not block the contract in case of reverting fallback.
-            _contributor.send(remainingETH);
-        }
-
-        if (contribution > 0) {
-            emit Contribution(_itemID, _requestID, _roundID + 1, msg.sender, contribution, _side);
-        }
-
-        return contribution;
-    }
-
-    // ************************ //
-    // *       Getters        * //
-    // ************************ //
-
-    /** @dev Gets the contributions made by a party for a given round of a request.
-     *  @param _itemID The ID of the item.
-     *  @param _requestID The request to query.
-     *  @param _roundID The round to query.
-     *  @param _contributor The address of the contributor.
-     *  @return contributions The contributions.
+    /**
+     * @dev Gets the contributions made by a party for a given round of a request.
+     * @param _itemID The ID of the item.
+     * @param _requestID The request to query.
+     * @param _roundID The round to query.
+     * @param _contributor The address of the contributor.
+     * @return contributions The contributions.
      */
     function getContributions(
         bytes32 _itemID,
@@ -902,10 +910,12 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         contributions = round.contributions[_contributor];
     }
 
-    /** @dev Returns item's information. Includes length of requests array.
-     *  @param _itemID The ID of the queried item.
-     *  @return status The current status of the item.
-     *  @return numberOfRequests Length of list of status change requests made for the item.
+    /**
+     * @dev Returns item's information. Includes the total number of requests for the item
+     * @param _itemID The ID of the queried item.
+     * @return status The current status of the item.
+     * @return numberOfRequests Total number of requests for the item.
+     * @return sumDeposit The total deposit made by the requester and the challenger (if any)
      */
     function getItemInfo(bytes32 _itemID)
         external
@@ -925,7 +935,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      * @param _itemID The ID of the queried item.
      * @param _requestID The request to be queried.
      * @return disputed True if a dispute was raised.
-     * @return disputeID ID of the dispute, if any..
+     * @return disputeID ID of the dispute, if any.
      * @return submissionTime Time when the request was made.
      * @return resolved True if the request was executed and/or any raised disputes were resolved.
      * @return parties Address of requester and challenger, if any.
@@ -971,7 +981,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      * @param _itemID The ID of the queried item.
      * @param _requestID The request to be queried.
      * @return disputed True if a dispute was raised.
-     * @return disputeID ID of the dispute, if any..
+     * @return disputeID ID of the dispute, if any.
      * @return ruling The final ruling given, if any.
      * @return numberOfRounds Number of rounds of dispute.
      */
@@ -1018,9 +1028,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         return (
             arbitrationParams.arbitrator,
             arbitrationParams.arbitratorExtraData,
-            request.requestType == RequestType.Registration
-                ? 2 * request.arbitrationParamsIndex
-                : 2 * request.arbitrationParamsIndex + 1
+            2 * request.arbitrationParamsIndex + uint256(request.requestType)
         );
     }
 
@@ -1034,6 +1042,10 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         Item storage item = items[_itemID];
         uint256 numberOfRequests = item.requestCount;
 
+        if (numberOfRequests == 0) {
+            return false;
+        }
+
         if (_requestID < numberOfRequests - 1) {
             // It was resolved because it is not the last request.
             return true;
@@ -1043,14 +1055,15 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         return disputeData.status != DisputeStatus.AwaitingRuling;
     }
 
-    /** @dev Gets the information of a round of a request.
-     *  @param _itemID The ID of the queried item.
-     *  @param _requestID The request to be queried.
-     *  @param _roundID The round to be queried.
-     *  @return appealed Whether appealed or not.
-     *  @return amountPaid Tracks the sum paid for each Party in this round.
-     *  @return hasPaid True if the Party has fully paid its fee in this round.
-     *  @return feeRewards Sum of reimbursable fees and stake rewards available to the parties that made contributions to the side that ultimately wins a dispute.
+    /**
+     * @dev Gets the information of a round of a request.
+     * @param _itemID The ID of the queried item.
+     * @param _requestID The request to be queried.
+     * @param _roundID The round to be queried.
+     * @return appealed Whether appealed or not.
+     * @return amountPaid Tracks the sum paid for each Party in this round.
+     * @return hasPaid True if the Party has fully paid its fee in this round.
+     * @return feeRewards Sum of reimbursable fees and stake rewards available to the parties that made contributions to the side that ultimately wins a dispute.
      */
     function getRoundInfo(
         bytes32 _itemID,
@@ -1067,7 +1080,22 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         )
     {
         DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
+        require(disputeData.roundCount > _roundID, "Round does not exist");
+
         Round storage round = disputeData.rounds[_roundID];
-        return (_roundID < disputeData.roundCount - 1, round.amountPaid, round.hasPaid, round.feeRewards);
+        appealed = _roundID < disputeData.roundCount - 1;
+
+        hasPaid[uint256(Party.Requester)] = appealed || round.sideFunded == Party.Requester;
+        hasPaid[uint256(Party.Challenger)] = appealed || round.sideFunded == Party.Challenger;
+
+        return (appealed, round.amountPaid, hasPaid, round.feeRewards);
+    }
+
+    /**
+     * @dev Gets the number of times MetaEvidence was updated.
+     * @return The number of times MetaEvidence was updated.
+     */
+    function metaEvidenceUpdates() public view returns (uint256) {
+        return arbitrationParamsChanges.length;
     }
 }

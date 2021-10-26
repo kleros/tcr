@@ -33,7 +33,7 @@ contract LightBatchWithdraw {
     ) public {
         LightGeneralizedTCR gtcr = LightGeneralizedTCR(_address);
         (, , , , , uint256 numberOfRounds, , , , ) = gtcr.getRequestInfo(_itemID, _request);
-        for (uint256 i = _cursor; i < numberOfRounds && (_count == 0 || i < _count); i++)
+        for (uint256 i = _cursor; i < numberOfRounds && (_count == 0 || i < _cursor + _count); i++)
             gtcr.withdrawFeesAndRewards(_contributor, _itemID, _request, i);
     }
 
@@ -57,7 +57,7 @@ contract LightBatchWithdraw {
     ) external {
         LightGeneralizedTCR gtcr = LightGeneralizedTCR(_address);
         (, uint256 numberOfRequests, ) = gtcr.getItemInfo(_itemID);
-        for (uint256 i = _cursor; i < numberOfRequests && (_count == 0 || i < _count); i++)
+        for (uint256 i = _cursor; i < numberOfRequests && (_count == 0 || i < _cursor + _count); i++)
             batchRoundWithdraw(_address, _contributor, _itemID, i, _roundCursor, _roundCount);
     }
 }

@@ -49,7 +49,7 @@ contract LightGTCRFactory {
      *  - The base deposit to challenge a removal request.
      *  @param _challengePeriodDuration The time in seconds parties have to challenge a request.
      *  @param _stakeMultipliers Multipliers of the arbitration cost in basis points (see LightGeneralizedTCR MULTIPLIER_DIVISOR) as follows:
-     *  - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round (e.g. when it's the first round or the arbitrator refused to arbitrate).
+     *  - The multiplier applied to each party's fee stake for a round when there is no winner/loser in the previous round.
      *  - The multiplier applied to the winner's fee stake for an appeal round.
      *  - The multiplier applied to the loser's fee stake for an appeal round.
      *  @param _relayContract The address of the relay contract to add/remove items directly.

@@ -120,7 +120,7 @@ describe("LightGeneralizedTCR", () => {
           from: requester,
           value: submitterTotalCost - 1,
         }),
-        "You must fully fund your side."
+        "You must fully fund the request."
       );
     });
 
@@ -193,7 +193,7 @@ describe("LightGeneralizedTCR", () => {
           from: challenger,
           value: submissionChallengeTotalCost - 1,
         }),
-        "You must fully fund your side."
+        "You must fully fund the request."
       );
     });
 
@@ -930,22 +930,6 @@ describe("LightGeneralizedTCR", () => {
     await expectRevert(gtcr.changeRelayerContract(other, { from: other }), "The caller must be the governor.");
     await gtcr.changeRelayerContract(other, { from: governor2 });
     assert.equal(await gtcr.relayerContract(), other, "Incorrect relayerContract address");
-  });
-
-  it("Should not be possibe to submit evidence to resolved dispute", async () => {
-    const tx = await gtcr.addItem("0xaabbaa", {
-      from: requester,
-      value: submitterTotalCost,
-    });
-    const itemID = tx.logs[1].args._itemID;
-
-    await time.increase(challengePeriodDuration + 1);
-    await gtcr.executeRequest(itemID, { from: governor });
-
-    await expectRevert(
-      gtcr.submitEvidence(itemID, "Evidence2", { from: other }),
-      "The dispute must not already be resolved."
-    );
   });
 
   describe("When using the relayer to modify the registry", () => {
