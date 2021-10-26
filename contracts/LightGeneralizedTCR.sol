@@ -491,7 +491,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
         uint256 appealCost = arbitrator.appealCost(disputeData.disputeID, arbitrationParams.arbitratorExtraData);
         uint256 totalCost = appealCost.addCap((appealCost.mulCap(multiplier)) / MULTIPLIER_DIVISOR);
-        contribute(_itemID, lastRequestIndex, lastRoundIndex, _side, msg.sender, msg.value, totalCost);
+        contribute(_itemID, lastRequestIndex, lastRoundIndex, uint256(_side), msg.sender, msg.value, totalCost);
 
         bool isCurrentSideFunded = round.amountPaid[uint256(_side)] >= totalCost;
 
@@ -827,7 +827,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         bytes32 _itemID,
         uint256 _requestID,
         uint256 _roundID,
-        Party _side,
+        uint256 _side,
         address payable _contributor,
         uint256 _amount,
         uint256 _totalRequired
@@ -846,8 +846,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         }
         // (contribution, remainingETH) = calculateContribution(_amount, pendingAmount);
 
-        round.contributions[_contributor][uint256(_side)] += contribution;
-        round.amountPaid[uint256(_side)] += contribution;
+        round.contributions[_contributor][_side] += contribution;
+        round.amountPaid[_side] += contribution;
         round.feeRewards += contribution;
 
         // Reimburse leftover ETH.
@@ -857,7 +857,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         }
 
         if (contribution > 0) {
-            emit Contribution(_itemID, _requestID, _roundID, msg.sender, contribution, _side);
+            emit Contribution(_itemID, _requestID, _roundID, msg.sender, contribution, Party(_side));
         }
     }
 
