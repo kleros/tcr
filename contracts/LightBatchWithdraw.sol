@@ -20,7 +20,7 @@ contract LightBatchWithdraw {
      *  @param _contributor The address that made contributions to the request.
      *  @param _itemID The ID of the item with funds to be withdrawn.
      *  @param _request The request from which to withdraw contributions.
-     *  @param _cursor The round from where to start withdrawing.
+     *  @param _cursor The round from where to start withdrawing. Round 0 is always empty, so callers can safely start with 1.
      *  @param _count The number of rounds to iterate. If set to 0 or a value larger than the number of rounds, iterates until the last round.
      */
     function batchRoundWithdraw(
@@ -43,7 +43,7 @@ contract LightBatchWithdraw {
      *  @param _itemID The ID of the item with funds to be withdrawn.
      *  @param _cursor The request from which to start withdrawing.
      *  @param _count The number of requests to iterate. If set to 0 or a value larger than the number of request, iterates until the last request.
-     *  @param _roundCursor The round of each request from where to start withdrawing.
+     *  @param _roundCursor The round of each request from where to start withdrawing. Round 0 is always empty, so callers can safely start with 1.
      *  @param _roundCount The number of rounds to iterate on each request. If set to 0 or a value larger than the number of rounds a request has, iteration for that request will stop at the last round.
      */
     function batchRequestWithdraw(
