@@ -193,7 +193,7 @@ describe("LightGeneralizedTCR", () => {
           from: challenger,
           value: submissionChallengeTotalCost - 1,
         }),
-        "You must fully fund the request."
+        "You must fully fund the challenge."
       );
     });
 
