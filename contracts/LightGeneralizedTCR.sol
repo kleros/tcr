@@ -394,7 +394,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             "Challenges must occur during the challenge period."
         );
 
-        DisputeData storage disputeData = requestsDisputeData[_itemID][item.requestCount - 1];
+        DisputeData storage disputeData = requestsDisputeData[_itemID][lastRequestIndex];
         require(disputeData.status == DisputeStatus.None, "The request should not have already been disputed.");
 
         ArbitrationParams storage arbitrationParams = arbitrationParamsChanges[request.arbitrationParamsIndex];
