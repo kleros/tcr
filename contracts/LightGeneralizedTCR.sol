@@ -104,6 +104,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
 
     uint256 public constant RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
 
+    uint256 private constant RESERVED_ROUND_ID = 0; // For compatibility with GeneralizedTCR consider the request/challenge cycle the first round (index 0).
+
     address public governor; // The address that can make changes to the parameters of the contract.
     uint256 public submissionBaseDeposit; // The base deposit to submit an item.
     uint256 public removalBaseDeposit; // The base deposit to remove an item.
@@ -316,6 +318,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 totalCost = arbitrationCost.addCap(submissionBaseDeposit);
         require(msg.value >= totalCost, "You must fully fund the request.");
 
+        emit Contribution(itemID, item.requestCount - 1, RESERVED_ROUND_ID, msg.sender, totalCost, Party.Requester);
+
         // Casting is safe here because this line will never be executed in case
         // totalCost > type(uint128).max, since it would be an unpayable value.
         item.sumDeposit = uint128(totalCost);
@@ -353,6 +357,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 arbitrationCost = arbitrator.arbitrationCost(arbitratorExtraData);
         uint256 totalCost = arbitrationCost.addCap(removalBaseDeposit);
         require(msg.value >= totalCost, "You must fully fund the request.");
+
+        emit Contribution(_itemID, item.requestCount - 1, RESERVED_ROUND_ID, msg.sender, totalCost, Party.Requester);
 
         // Casting is safe here because this line will never be executed in case
         // totalCost > type(uint128).max, since it would be an unpayable value.
@@ -410,6 +416,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         }
         require(msg.value >= totalCost, "You must fully fund the challenge.");
 
+        emit Contribution(_itemID, lastRequestIndex, RESERVED_ROUND_ID, msg.sender, totalCost, Party.Challenger);
+
         // Casting is safe here because this line will never be executed in case
         // totalCost > type(uint128).max, since it would be an unpayable value.
         item.sumDeposit = item.sumDeposit.addCap(uint128(totalCost)).subCap(uint128(arbitrationCost));
@@ -422,7 +430,9 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             arbitrationParams.arbitratorExtraData
         );
         disputeData.status = DisputeStatus.AwaitingRuling;
-        disputeData.roundCount++;
+        // For compatibility with GeneralizedTCR consider the request/challenge cycle
+        // the first round (index 0), so we need to make the next round index 1.
+        disputeData.roundCount = 2;
 
         arbitratorDisputeIDToItemID[address(arbitrator)][disputeData.disputeID] = _itemID;
 
@@ -492,9 +502,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 totalCost = appealCost.addCap((appealCost.mulCap(multiplier)) / MULTIPLIER_DIVISOR);
         contribute(_itemID, lastRequestIndex, lastRoundIndex, uint256(_side), msg.sender, msg.value, totalCost);
 
-        bool isCurrentSideFunded = round.amountPaid[uint256(_side)] >= totalCost;
-
-        if (isCurrentSideFunded) {
+        if (round.amountPaid[uint256(_side)] >= totalCost) {
             if (round.sideFunded == Party.None) {
                 round.sideFunded = _side;
             } else {
@@ -834,7 +842,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 _totalRequired
     ) internal {
         Round storage round = requestsDisputeData[_itemID][_requestID].rounds[_roundID];
-        uint256 pendingAmount = _totalRequired.subCap(round.amountPaid[uint256(_side)]);
+        uint256 pendingAmount = _totalRequired.subCap(round.amountPaid[_side]);
 
         // Take up to the amount necessary to fund the current round at the current costs.
         uint256 contribution; // Amount contributed.
@@ -845,7 +853,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             contribution = pendingAmount;
             remainingETH = _amount - pendingAmount;
         }
-        // (contribution, remainingETH) = calculateContribution(_amount, pendingAmount);
 
         round.contributions[_contributor][_side] += contribution;
         round.amountPaid[_side] += contribution;
@@ -892,6 +899,14 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      */
     function arbitratorExtraData() external view returns (bytes memory) {
         return arbitrationParamsChanges[arbitrationParamsChanges.length - 1].arbitratorExtraData;
+    }
+
+    /**
+     * @dev Gets the number of times MetaEvidence was updated.
+     * @return The number of times MetaEvidence was updated.
+     */
+    function metaEvidenceUpdates() external view returns (uint256) {
+        return arbitrationParamsChanges.length;
     }
 
     /**
@@ -1056,8 +1071,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             return true;
         }
 
-        DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
-        return disputeData.status != DisputeStatus.AwaitingRuling;
+        return item.sumDeposit == 0;
     }
 
     /**
@@ -1097,13 +1111,5 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         hasPaid[uint256(Party.Challenger)] = appealed || round.sideFunded == Party.Challenger;
 
         return (appealed, round.amountPaid, hasPaid, round.feeRewards);
-    }
-
-    /**
-     * @dev Gets the number of times MetaEvidence was updated.
-     * @return The number of times MetaEvidence was updated.
-     */
-    function metaEvidenceUpdates() public view returns (uint256) {
-        return arbitrationParamsChanges.length;
     }
 }

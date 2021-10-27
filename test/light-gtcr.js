@@ -170,8 +170,10 @@ describe("LightGeneralizedTCR", () => {
         "Requester paidFees has not been registered correctly"
       );
 
-      assert.equal(txAddItem.logs[1].event, "RequestSubmitted", "The event has not been created");
-      assert.equal(txAddItem.logs[0].args._itemID, itemID, "The event has wrong item ID");
+      assert.equal(txAddItem.logs[1].event, "Contribution", "The Contribution event has not been created");
+      assert.equal(txAddItem.logs[1].args._roundID, 0, "The Contribution event has wrong round ID");
+      assert.equal(txAddItem.logs[2].event, "RequestSubmitted", "The RequestSubmitted event has not been created");
+      assert.equal(txAddItem.logs[2].args._itemID, itemID, "The RequestSubmitted event has wrong item ID");
     });
   });
 
@@ -207,7 +209,7 @@ describe("LightGeneralizedTCR", () => {
       assert.equal(request.parties[2], challenger, "Challenger has not been set up properly");
       assert.equal(request.disputed, true, "The request should have status disputed");
       assert.equal(request.disputeID.toNumber(), 1, "Dispute ID has not been set up properly");
-      assert.equal(request.numberOfRounds.toNumber(), 1, "Number of rounds should have been incremented");
+      assert.equal(request.numberOfRounds.toNumber(), 2, "Number of rounds should have been set to 2");
 
       const arbitratorDisputeIDToItemID = await gtcr.arbitratorDisputeIDToItemID(arbitrator.address, 1);
       assert.equal(arbitratorDisputeIDToItemID, itemID, "Incorrect arbitratorDisputeIDToItemID value");
@@ -221,17 +223,18 @@ describe("LightGeneralizedTCR", () => {
       assert.equal(dispute[1].toNumber(), 2, "Number of choices not set up properly");
 
       const evidenceGroupID = parseInt(soliditySha3(itemID, 0), 16);
-      assert.equal(txChallenge.logs[0].event, "Dispute", "The event Dispute has not been created");
-      assert.equal(txChallenge.logs[0].args._arbitrator, arbitrator.address, "The event has wrong arbitrator");
-      assert.equal(txChallenge.logs[0].args._disputeID.toNumber(), 1, "The event has wrong dispute ID");
-      assert.equal(txChallenge.logs[0].args._metaEvidenceID.toNumber(), 0, "The event has wrong metaevidence ID");
-      assert.equal(txChallenge.logs[0].args._evidenceGroupID, evidenceGroupID, "The event has wrong evidenceGroup ID");
-
-      assert.equal(txChallenge.logs[1].event, "Evidence", "The event Evidence has not been created");
+      assert.equal(txChallenge.logs[0].event, "Contribution", "The event Contribution has not been created");
+      assert.equal(txChallenge.logs[0].args._roundID, 0, "The event has wrong round ID");
+      assert.equal(txChallenge.logs[1].event, "Dispute", "The event Dispute has not been created");
       assert.equal(txChallenge.logs[1].args._arbitrator, arbitrator.address, "The event has wrong arbitrator");
+      assert.equal(txChallenge.logs[1].args._disputeID.toNumber(), 1, "The event has wrong dispute ID");
+      assert.equal(txChallenge.logs[1].args._metaEvidenceID.toNumber(), 0, "The event has wrong metaevidence ID");
       assert.equal(txChallenge.logs[1].args._evidenceGroupID, evidenceGroupID, "The event has wrong evidenceGroup ID");
-      assert.equal(txChallenge.logs[1].args._party, challenger, "The event has wrong party");
-      assert.equal(txChallenge.logs[1].args._evidence, "Evidence.json", "The event has wrong evidence");
+      assert.equal(txChallenge.logs[2].event, "Evidence", "The event Evidence has not been created");
+      assert.equal(txChallenge.logs[2].args._arbitrator, arbitrator.address, "The event has wrong arbitrator");
+      assert.equal(txChallenge.logs[2].args._evidenceGroupID, evidenceGroupID, "The event has wrong evidenceGroup ID");
+      assert.equal(txChallenge.logs[2].args._party, challenger, "The event has wrong party");
+      assert.equal(txChallenge.logs[2].args._evidence, "Evidence.json", "The event has wrong evidence");
 
       await expectRevert(
         gtcr.challengeRequest(itemID, "Evidence2.json", {
@@ -395,7 +398,7 @@ describe("LightGeneralizedTCR", () => {
 
       await gtcr.fundAppeal(itemID, PARTY.REQUESTER, { from: requester, value: loserAppealFee });
 
-      roundInfo = await gtcr.getRoundInfo(itemID, 0, 0);
+      roundInfo = await gtcr.getRoundInfo(itemID, 0, 1);
 
       assert.equal(
         roundInfo.amountPaid[PARTY.REQUESTER].toNumber(),
@@ -428,7 +431,7 @@ describe("LightGeneralizedTCR", () => {
         value: winnerAppealFee - 1,
       }); // Underpay to see if it's registered correctly
 
-      roundInfo = await gtcr.getRoundInfo(itemID, 0, 0);
+      roundInfo = await gtcr.getRoundInfo(itemID, 0, 1);
 
       assert.equal(
         roundInfo.amountPaid[PARTY.CHALLENGER].toNumber(),
@@ -449,7 +452,7 @@ describe("LightGeneralizedTCR", () => {
 
       await gtcr.fundAppeal(itemID, PARTY.CHALLENGER, { from: challenger, value: 5e18 });
 
-      roundInfo = await gtcr.getRoundInfo(itemID, 0, 0);
+      roundInfo = await gtcr.getRoundInfo(itemID, 0, 1);
 
       assert.equal(
         roundInfo.amountPaid[PARTY.CHALLENGER].toNumber(),
@@ -474,7 +477,7 @@ describe("LightGeneralizedTCR", () => {
       await gtcr.fundAppeal(itemID, PARTY.CHALLENGER, { from: challenger, value: winnerAppealFee });
 
       // If both sides pay their fees it starts new appeal round. Check that both sides have their value set to default.
-      const roundInfo = await gtcr.getRoundInfo(itemID, 0, 1);
+      const roundInfo = await gtcr.getRoundInfo(itemID, 0, 2);
 
       assert.equal(
         roundInfo.hasPaid[PARTY.REQUESTER],
@@ -733,7 +736,7 @@ describe("LightGeneralizedTCR", () => {
         "The balance of the requester should stay the same after withdrawing from the first round"
       );
 
-      await gtcr.withdrawFeesAndRewards(requester, itemID, 0, 1, {
+      await gtcr.withdrawFeesAndRewards(requester, itemID, 0, 2, {
         from: governor,
       });
       newBalanceRequester = await web3.eth.getBalance(requester);
@@ -743,7 +746,7 @@ describe("LightGeneralizedTCR", () => {
       );
 
       const oldBalanceChallenger = await web3.eth.getBalance(challenger);
-      await gtcr.withdrawFeesAndRewards(challenger, itemID, 0, 0, {
+      await gtcr.withdrawFeesAndRewards(challenger, itemID, 0, 1, {
         from: governor,
       });
       const newBalanceChallenger = await web3.eth.getBalance(challenger);
@@ -753,7 +756,7 @@ describe("LightGeneralizedTCR", () => {
       );
 
       const oldBalanceCrowdfunder = await web3.eth.getBalance(other);
-      await gtcr.withdrawFeesAndRewards(other, itemID, 0, 0, { from: governor });
+      await gtcr.withdrawFeesAndRewards(other, itemID, 0, 1, { from: governor });
       const newBalanceCrowdfunder = await web3.eth.getBalance(other);
       assert(
         new BN(newBalanceCrowdfunder).eq(new BN(oldBalanceCrowdfunder).add(new BN(1000))), // Crowdfunder paid only half of the fees as well
@@ -784,7 +787,7 @@ describe("LightGeneralizedTCR", () => {
       await arbitrator.giveRuling(2, PARTY.NONE);
 
       const oldBalanceRequester = await web3.eth.getBalance(requester);
-      await gtcr.withdrawFeesAndRewards(requester, itemID, 0, 0, {
+      await gtcr.withdrawFeesAndRewards(requester, itemID, 0, 1, {
         from: governor,
       });
       const newBalanceRequester = await web3.eth.getBalance(requester);
@@ -794,7 +797,7 @@ describe("LightGeneralizedTCR", () => {
       );
 
       const oldBalanceChallenger = await web3.eth.getBalance(challenger);
-      await gtcr.withdrawFeesAndRewards(challenger, itemID, 0, 0, {
+      await gtcr.withdrawFeesAndRewards(challenger, itemID, 0, 1, {
         from: governor,
       });
       const newBalanceChallenger = await web3.eth.getBalance(challenger);
@@ -804,7 +807,7 @@ describe("LightGeneralizedTCR", () => {
       );
 
       const oldBalanceCrowdfunder = await web3.eth.getBalance(other);
-      await gtcr.withdrawFeesAndRewards(other, itemID, 0, 0, { from: governor });
+      await gtcr.withdrawFeesAndRewards(other, itemID, 0, 1, { from: governor });
       const newBalanceCrowdfunder = await web3.eth.getBalance(other);
 
       assert(
