@@ -96,17 +96,18 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
     }
 
+    /* Constants */
+
+    uint256 public constant RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
+    uint256 private constant RESERVED_ROUND_ID = 0; // For compatibility with GeneralizedTCR consider the request/challenge cycle the first round (index 0).
+
     /* Storage */
 
     bool private initialized;
 
     address public relayerContract; // The contract that is used to add or remove items directly to speed up the interchain communication.
-
-    uint256 public constant RULING_OPTIONS = 2; // The amount of non 0 choices the arbitrator can give.
-
-    uint256 private constant RESERVED_ROUND_ID = 0; // For compatibility with GeneralizedTCR consider the request/challenge cycle the first round (index 0).
-
     address public governor; // The address that can make changes to the parameters of the contract.
+
     uint256 public submissionBaseDeposit; // The base deposit to submit an item.
     uint256 public removalBaseDeposit; // The base deposit to remove an item.
     uint256 public submissionChallengeBaseDeposit; // The base deposit to challenge a submission.
@@ -199,8 +200,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 _round,
         uint256 _reward
     );
-
-    constructor() public {}
 
     /**
      * @dev Initialize the arbitrable curated registry.
@@ -822,7 +821,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     }
 
     /**
-     * @dev Make a fee contribution.
+     * @notice Make a fee contribution.
+     * @dev It cannot be inlined in fundAppeal because of the stack limit.
      * @param _itemID The item receiving the contribution.
      * @param _requestID The request to contribute.
      * @param _roundID The round to contribute.
