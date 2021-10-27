@@ -1,5 +1,5 @@
 {
   "*.{json,md}": "prettier --write",
-  "*.{sol}": "solhint --fix",
+  "*.sol": "solhint --fix",
   "*.js": "eslint --fix"
 }
