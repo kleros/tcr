@@ -91,7 +91,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
     }
 
     struct ArbitrationParams {
-        uint256 timestamp; // The time in which the arbitration params were set.
         IArbitrator arbitrator; // The arbitrator trusted to solve disputes for this request.
         bytes arbitratorExtraData; // The extra data for the trusted arbitrator of this request.
     }
@@ -812,11 +811,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         emit MetaEvidence(2 * arbitrationParamsChanges.length + 1, _clearingMetaEvidence);
 
         arbitrationParamsChanges.push(
-            ArbitrationParams({
-                timestamp: block.timestamp,
-                arbitrator: _arbitrator,
-                arbitratorExtraData: _arbitratorExtraData
-            })
+            ArbitrationParams({arbitrator: _arbitrator, arbitratorExtraData: _arbitratorExtraData})
         );
     }
 
