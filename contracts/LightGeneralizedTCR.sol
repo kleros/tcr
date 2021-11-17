@@ -478,7 +478,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         {
             (uint256 appealPeriodStart, uint256 appealPeriodEnd) = arbitrator.appealPeriod(disputeData.disputeID);
             require(
-                now >= appealPeriodStart && now < appealPeriodEnd,
+                block.timestamp >= appealPeriodStart && block.timestamp < appealPeriodEnd,
                 "Contributions must be made within the appeal period."
             );
 
@@ -490,7 +490,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
             } else {
                 multiplier = loserStakeMultiplier;
                 require(
-                    now < (appealPeriodStart + appealPeriodEnd) / 2,
+                    block.timestamp < (appealPeriodStart + appealPeriodEnd) / 2,
                     "The loser must contribute during the first half of the appeal period."
                 );
             }
@@ -571,7 +571,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 lastRequestIndex = items[_itemID].requestCount - 1;
 
         Request storage request = item.requests[lastRequestIndex];
-        require(now - request.submissionTime > challengePeriodDuration, "Time to challenge the request must pass.");
+        require(block.timestamp - request.submissionTime > challengePeriodDuration, "Time to challenge the request must pass.");
 
         DisputeData storage disputeData = requestsDisputeData[_itemID][lastRequestIndex];
         require(disputeData.status == DisputeStatus.None, "The request should not be disputed.");
