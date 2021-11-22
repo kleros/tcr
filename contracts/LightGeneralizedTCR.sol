@@ -497,7 +497,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         }
 
         uint256 appealCost = arbitrator.appealCost(disputeData.disputeID, arbitrationParams.arbitratorExtraData);
-        uint256 totalCost = appealCost.addCap((appealCost.mulCap(multiplier)) / MULTIPLIER_DIVISOR);
+        uint256 totalCost = appealCost.addCap(appealCost.mulCap(multiplier) / MULTIPLIER_DIVISOR);
         contribute(_itemID, lastRequestIndex, lastRoundIndex, uint256(_side), msg.sender, msg.value, totalCost);
 
         if (round.amountPaid[uint256(_side)] >= totalCost) {
