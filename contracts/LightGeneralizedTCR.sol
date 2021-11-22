@@ -231,7 +231,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 _challengePeriodDuration,
         uint256[3] memory _stakeMultipliers,
         address _relayerContract
-    ) public {
+    ) external {
         require(!initialized, "Already initialized.");
 
         emit ConnectedTCRSet(_connectedTCR);
@@ -527,7 +527,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         bytes32 _itemID,
         uint256 _requestID,
         uint256 _roundID
-    ) public {
+    ) external {
         DisputeData storage disputeData = requestsDisputeData[_itemID][_requestID];
 
         require(disputeData.status == DisputeStatus.Resolved, "Request must be resolved.");
@@ -601,7 +601,7 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      * @param _disputeID ID of the dispute in the arbitrator contract.
      * @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Refused to arbitrate".
      */
-    function rule(uint256 _disputeID, uint256 _ruling) public {
+    function rule(uint256 _disputeID, uint256 _ruling) external {
         require(_ruling <= RULING_OPTIONS, "Invalid ruling option");
 
         bytes32 itemID = arbitratorDisputeIDToItemID[msg.sender][_disputeID];
