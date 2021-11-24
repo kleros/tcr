@@ -222,14 +222,14 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
      */
     function initialize(
         IArbitrator _arbitrator,
-        bytes memory _arbitratorExtraData,
+        bytes calldata _arbitratorExtraData,
         address _connectedTCR,
-        string memory _registrationMetaEvidence,
-        string memory _clearingMetaEvidence,
+        string calldata _registrationMetaEvidence,
+        string calldata _clearingMetaEvidence,
         address _governor,
-        uint256[4] memory _baseDeposits,
+        uint256[4] calldata _baseDeposits,
         uint256 _challengePeriodDuration,
-        uint256[3] memory _stakeMultipliers,
+        uint256[3] calldata _stakeMultipliers,
         address _relayerContract
     ) external {
         require(!initialized, "Already initialized.");
