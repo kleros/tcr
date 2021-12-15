@@ -316,8 +316,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 totalCost = arbitrationCost.addCap(submissionBaseDeposit);
         require(msg.value >= totalCost, "You must fully fund the request.");
 
-        emit Contribution(itemID, item.requestCount - 1, RESERVED_ROUND_ID, msg.sender, totalCost, Party.Requester);
-
         // Casting is safe here because this line will never be executed in case
         // totalCost > type(uint128).max, since it would be an unpayable value.
         item.sumDeposit = uint128(totalCost);
@@ -329,6 +327,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         request.requester = msg.sender;
 
         emit RequestSubmitted(itemID, getEvidenceGroupID(itemID, item.requestCount - 1));
+
+        emit Contribution(itemID, item.requestCount - 1, RESERVED_ROUND_ID, msg.sender, totalCost, Party.Requester);
 
         if (msg.value > totalCost) {
             msg.sender.send(msg.value - totalCost);
@@ -356,8 +356,6 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 totalCost = arbitrationCost.addCap(removalBaseDeposit);
         require(msg.value >= totalCost, "You must fully fund the request.");
 
-        emit Contribution(_itemID, item.requestCount - 1, RESERVED_ROUND_ID, msg.sender, totalCost, Party.Requester);
-
         // Casting is safe here because this line will never be executed in case
         // totalCost > type(uint128).max, since it would be an unpayable value.
         item.sumDeposit = uint128(totalCost);
@@ -371,6 +369,8 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 evidenceGroupID = getEvidenceGroupID(_itemID, item.requestCount - 1);
 
         emit RequestSubmitted(_itemID, evidenceGroupID);
+
+        emit Contribution(_itemID, item.requestCount - 1, RESERVED_ROUND_ID, msg.sender, totalCost, Party.Requester);
 
         // Emit evidence if it was provided.
         if (bytes(_evidence).length > 0) {
@@ -571,7 +571,10 @@ contract LightGeneralizedTCR is IArbitrable, IEvidence {
         uint256 lastRequestIndex = items[_itemID].requestCount - 1;
 
         Request storage request = item.requests[lastRequestIndex];
-        require(block.timestamp - request.submissionTime > challengePeriodDuration, "Time to challenge the request must pass.");
+        require(
+            block.timestamp - request.submissionTime > challengePeriodDuration,
+            "Time to challenge the request must pass."
+        );
 
         DisputeData storage disputeData = requestsDisputeData[_itemID][lastRequestIndex];
         require(disputeData.status == DisputeStatus.None, "The request should not be disputed.");
