@@ -16,6 +16,25 @@ import {LightGeneralizedTCR, IArbitrator} from "../LightGeneralizedTCR.sol";
 /* solium-disable security/no-send */
 // It is the user responsibility to accept ETH.
 
+// hack for v2 compatibility
+interface IArbitratorV2 {
+    enum Period {
+        evidence, // Evidence can be submitted. This is also when drawing has to take place.
+        commit, // Jurors commit a hashed vote. This is skipped for courts without hidden votes.
+        vote, // Jurors reveal/cast their vote depending on whether the court has hidden votes or not.
+        appeal, // The dispute can be appealed.
+        execution // Tokens are redistributed and the ruling is executed.
+    }
+
+    function disputes(uint256 _disputeID) external view returns(uint96, address, uint8, bool);
+     /**
+     * @dev Compute the cost of appeal. It is recommended not to increase it often, as it can be higly time and gas consuming for the arbitrated contracts to cope with fee augmentation.
+     * @param _disputeID ID of the dispute to be appealed.
+     * @return cost Amount to be paid.
+     */
+    function appealCost(uint256 _disputeID) external view returns (uint256 cost);
+}
+
 /**
  *  @title LightGeneralizedTCRView
  *  A view contract to fetch, batch, parse and return GTCR contract data efficiently.
@@ -115,14 +134,16 @@ contract LightGeneralizedTCRView {
             disputeStatus: IArbitrator.DisputeStatus.Waiting,
             numberOfRequests: round.request.item.numberOfRequests
         });
+        (,, uint8 period,) = IArbitratorV2(address(round.request.arbitrator)).disputes(result.disputeID);
         if (
             round.request.disputed &&
-            round.request.arbitrator.disputeStatus(result.disputeID) == IArbitrator.DisputeStatus.Appealable
+            disputeStatus(period) == IArbitrator.DisputeStatus.Appealable
         ) {
             result.currentRuling = LightGeneralizedTCR.Party(round.request.arbitrator.currentRuling(result.disputeID));
-            result.disputeStatus = round.request.arbitrator.disputeStatus(result.disputeID);
+            result.disputeStatus = disputeStatus(period);
             (result.appealStart, result.appealEnd) = round.request.arbitrator.appealPeriod(result.disputeID);
-            result.appealCost = round.request.arbitrator.appealCost(result.disputeID, result.arbitratorExtraData);
+            result.appealCost =
+                IArbitratorV2(address(round.request.arbitrator)).appealCost(result.disputeID);
         }
     }
 
@@ -333,5 +354,12 @@ contract LightGeneralizedTCRView {
         } else {
             round = RoundData(request, false, [0, sumDeposit, 0], [false, true, false], sumDeposit);
         }
+    }
+
+    // hack for v2 compatibility
+    function disputeStatus(uint8 _period) public view returns(IArbitrator.DisputeStatus status) {
+        if (_period < uint8(IArbitratorV2.Period.appeal)) status = IArbitrator.DisputeStatus.Waiting;
+        else if (_period < uint8(IArbitratorV2.Period.execution)) status = IArbitrator.DisputeStatus.Appealable;
+        else status = IArbitrator.DisputeStatus.Solved;
     }
 }

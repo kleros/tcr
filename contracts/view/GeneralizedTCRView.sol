@@ -10,12 +10,31 @@ pragma solidity 0.5.17;
 pragma experimental ABIEncoderV2;
 
 import { GeneralizedTCR, IArbitrator } from "../GeneralizedTCR.sol";
-import { BytesLib } from "solidity-bytes-utils/contracts/BytesLib.sol";
-import { RLPReader } from "solidity-rlp/contracts/RLPReader.sol";
+import { BytesLib } from "https://github.com/GNSPS/solidity-bytes-utils/blob/fa2792ea2ad6f868987d2e21f7aab867174fca3f/contracts/BytesLib.sol";
+import { RLPReader } from "https://github.com/hamdiallam/Solidity-RLP/blob/2e987867285e43a3643b456e3495351dd97aaf31/contracts/RLPReader.sol";
 
 /* solium-disable max-len */
 /* solium-disable security/no-block-members */
 /* solium-disable security/no-send */ // It is the user responsibility to accept ETH.
+
+// hack for v2 compatibility
+interface IArbitratorV2 {
+    enum Period {
+        evidence, // Evidence can be submitted. This is also when drawing has to take place.
+        commit, // Jurors commit a hashed vote. This is skipped for courts without hidden votes.
+        vote, // Jurors reveal/cast their vote depending on whether the court has hidden votes or not.
+        appeal, // The dispute can be appealed.
+        execution // Tokens are redistributed and the ruling is executed.
+    }
+
+    function disputes(uint256 _disputeID) external view returns(uint96, address, uint8, bool);
+     /**
+     * @dev Compute the cost of appeal. It is recommended not to increase it often, as it can be higly time and gas consuming for the arbitrated contracts to cope with fee augmentation.
+     * @param _disputeID ID of the dispute to be appealed.
+     * @return cost Amount to be paid.
+     */
+    function appealCost(uint256 _disputeID) external view returns (uint256 cost);
+}
 
 /**
  *  @title GeneralizedTCRView
@@ -122,11 +141,16 @@ contract GeneralizedTCRView {
             disputeStatus: IArbitrator.DisputeStatus.Waiting,
             numberOfRequests: round.request.item.numberOfRequests
         });
-        if (round.request.disputed && round.request.arbitrator.disputeStatus(result.disputeID) == IArbitrator.DisputeStatus.Appealable) {
+        (,, uint8 period,) = IArbitratorV2(address(round.request.arbitrator)).disputes(result.disputeID);
+        if (
+            round.request.disputed && 
+            disputeStatus(period) == IArbitrator.DisputeStatus.Appealable
+        ) {
             result.currentRuling = GeneralizedTCR.Party(round.request.arbitrator.currentRuling(result.disputeID));
-            result.disputeStatus = round.request.arbitrator.disputeStatus(result.disputeID);
+            result.disputeStatus = disputeStatus(period);
             (result.appealStart, result.appealEnd) = round.request.arbitrator.appealPeriod(result.disputeID);
-            result.appealCost = round.request.arbitrator.appealCost(result.disputeID, result.arbitratorExtraData);
+            result.appealCost = 
+                IArbitratorV2(address(round.request.arbitrator)).appealCost(result.disputeID);
         }
     }
 
@@ -589,5 +613,12 @@ contract GeneralizedTCRView {
             hasPaid,
             feeRewards
         );
+    }
+
+    // hack for v2 compatibility
+    function disputeStatus(uint8 _period) public view returns(IArbitrator.DisputeStatus status) {
+        if (_period < uint8(IArbitratorV2.Period.appeal)) status = IArbitrator.DisputeStatus.Waiting;
+        else if (_period < uint8(IArbitratorV2.Period.execution)) status = IArbitrator.DisputeStatus.Appealable;
+        else status = IArbitrator.DisputeStatus.Solved;
     }
 }
