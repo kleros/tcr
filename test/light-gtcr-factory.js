@@ -1,4 +1,4 @@
-const { web3 } = require("hardhat");
+const { web3,deployments } = require("hardhat");
 const { expect } = require("chai");
 const { BN, expectRevert } = require("@openzeppelin/test-helpers");
 
