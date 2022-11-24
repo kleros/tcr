@@ -36,25 +36,24 @@ module.exports = {
       }
     },
     namedAccounts: {
-      deployer: {
+      governor: {
         default: 0,
       },
-      governor: {
+      requester: {
         default: 1,
       },
-      requester: {
+      challenger: {
         default: 2,
       },
-      challenger: {
+      governor2 :{
         default: 3,
       },
-      governor2 :{
+      other: {
         default: 4,
       },
-      other: {
+      deployer: {
         default: 5,
       },
-     
     },
   
   gasReporter: {
