@@ -32,7 +32,7 @@ module.exports = {
         tags: ["test", "local"],
           url: `https://matic-mumbai.chainstacklabs.com`,
         chainId: 80001,
-        accounts:["f6da6e929d494444c44c2be9681201e28f97d6e063a061f4a3514f1dc59eb15a",]
+        accounts:["YOURPRIVATEKEYFORGOVERNOR","YOURPRIVATEKEYFORREQUESTER","YOURPRIVATEKEYFORCHALLENGER","YOURPRIVATEKEYFORGOVERNOR2","YOURPRIVATEKEYFOROTHER","YOURPRIVATEKEYFORDEPLOYER"],
       }
     },
     namedAccounts: {
