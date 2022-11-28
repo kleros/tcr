@@ -48,8 +48,8 @@ Testrpc default gas limit is lower than the mainnet which prevents deploying som
 - Run `yarn hardhat test <location of test file> --network <network name>` to run the test cases of a given test file on a specific network.
 
 ## Deploying contracts
-- Run `npx hardhat deploy` to deploy contracts on hardhat.
-- Run `npx hardhat deploy --network <network name>` to deploy contracts on specific network.
+- Run `yarn hardhat deploy` to deploy contracts on hardhat.
+- Run `yarn hardhat deploy --network <network name>` to deploy contracts on specific network.
 
 ## Contributing
 
