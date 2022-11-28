@@ -41,9 +41,15 @@ Testrpc default gas limit is lower than the mainnet which prevents deploying som
 
 ## Testing contracts
 
-- Run `npx hardhat compile` to compile the contracts.
-- Run `npx hardhat test` to run all test cases in test folder.
-- Run `npx hardhat test <location of test file>` to run the test cases for specific contract.
+- Run `yarn hardhat compile` to compile the contracts.
+- Run `yarn hardhat test` to run all test cases in test folder.
+- Run `yarn hardhat test <location of test file>` to run the test cases  of a given test file.
+- Run `yarn hardhat test --network <network name>` to run all test cases in test folder on a specific network.
+- Run `yarn hardhat test <location of test file> --network <network name>` to run the test cases of a given test file on a specific network.
+
+## Deploying contracts
+- Run `npx hardhat deploy` to deploy contracts on hardhat.
+- Run `npx hardhat deploy --network <network name>` to deploy contracts on specific network.
 
 ## Contributing
 

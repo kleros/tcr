@@ -111,7 +111,6 @@ contract("GTCR", () => {
       from: requester,
       value: submitterTotalCost,
     });
-    console.log(txAddItem,"txn");
     await expectRevert(
       gtcr.addItem("0xffb43c480000000000000000000000000000000000000000000000000000000000002222", {
         from: requester,
@@ -205,7 +204,6 @@ contract("GTCR", () => {
     assert.equal(dispute[1].toNumber(), 2, "Number of choices not set up properly");
 
     const evidenceGroupID = parseInt(soliditySha3(itemID, 0), 16);
-    console.log(txChallenge,"txn 1st");
     assert.equal(txChallenge.logs[0].event, "Dispute", "The event Dispute has not been created");
     assert.equal(txChallenge.logs[0].args._arbitrator, arbitrator.address, "The event has wrong arbitrator");
     assert.equal(txChallenge.logs[0].args._disputeID.toNumber(), 1, "The event has wrong dispute ID");

@@ -1169,14 +1169,7 @@ describe("LightGeneralizedTCR", () => {
 
       await gtcr.connect(requester).fundAppeal(itemID, PARTY.REQUESTER, {  value: loserAppealFee });
       const appealTx = await gtcr.connect(requester).fundAppeal(itemID, PARTY.CHALLENGER, { value: winnerAppealFee });
-      let appealTxReceipt = await appealTx.wait();
-      console.log(appealTxReceipt,"receipt of appeal");
-      // Appeal should be made in the original arbitrator contract
-      // assert.equal(appealTxReceipt.events[0].args._evidenceGroupID.toString(),evidenceGroupID.toString(),"incorrect itemId");
-      await expectEvent.inTransaction(appealTxReceipt.transactionHash, arbitrator, "AppealDecision", {
-        _disputeID: "1",
-        _arbitrable: gtcr.address,
-      });
+      expect(appealTx).to.emit(arbitrator, "AppealDecision").withArgs("1", gtcr.address);
     });
 
     it("Should use the updated arbitration params for the subsequent requests for the same item", async () => {

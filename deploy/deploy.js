@@ -1,25 +1,12 @@
 const { network, ethers, artifacts } = require("hardhat");
-const hre = require("hardhat");
-module.exports = async ({ getNamedAccounts, deployments, getChainId, getUnnamedAccounts }) => {
-  const { deploy, execute } = deployments;
-  const { deployer, governor, other } = await getNamedAccounts();
-  const accounts = await ethers.getSigners();
+module.exports = async ({ getNamedAccounts, deployments}) => {
+  const { deploy} = deployments;
+  const { deployer, governor} = await getNamedAccounts();
   arbitratorExtraData = "0x85";
   arbitrationCost = 1000;
   const appealTimeOut = 180;
-  const registrationMetaEvidence = "registrationMetaEvidence.json";
-  const clearingMetaEvidence = "clearingMetaEvidence.json";
-  const submissionBaseDeposit = 2000;
-  const removalBaseDeposit = 1300;
-  const submissionChallengeBaseDeposit = 5000;
-  const removalChallengeBaseDeposit = 1200;
-  const challengePeriodDuration = 600;
-  const sharedStakeMultiplier = 5000;
-  const winnerStakeMultiplier = 2000;
-  const loserStakeMultiplier = 8000;
 
   // the following will deploy "EnhancedAppealableArbitrator" if the contract was never deployed or if the code changed since last deployment
-  //console.log(deployer,governor,accounts[0], "deployer");
   const EnhancedArbitrator = await deploy("EnhancedAppealableArbitrator", {
     from: governor,
     args: [arbitrationCost, governor, arbitratorExtraData, appealTimeOut],
@@ -29,23 +16,6 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId, getUnnamedA
     from: deployer,
     args: [],
   });
-  // await execute(
-  //   "GTCRFactory",
-  //   { from: governor, log: true },
-  //   "deploy",
-    // EnhancedArbitrator.address,
-    // arbitratorExtraData,
-    // other,
-    // registrationMetaEvidence,
-    // clearingMetaEvidence,
-    // governor,
-    // submissionBaseDeposit,
-    // removalBaseDeposit,
-    // submissionChallengeBaseDeposit,
-    // removalChallengeBaseDeposit,
-    // challengePeriodDuration,
-    // [sharedStakeMultiplier, winnerStakeMultiplier, loserStakeMultiplier]
-  // );
   console.log(GTCRFactory.address, "GTCRFactory address");
   const LGTCR = await deploy("LightGeneralizedTCR", {
     from: deployer,
@@ -61,21 +31,6 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId, getUnnamedA
     args: [],
   });
   console.log(RelayMock.address, "address of RelayMock");
-  // await execute(
-  //   "LightGTCRFactory",
-  //   { from: governor, log: true },
-  //   "deploy",
-  //   EnhancedArbitrator.address,
-  //   arbitratorExtraData,
-  //   other, // Temporarily set connectedTCR to 'other' account for test purposes.
-  //   registrationMetaEvidence,
-  //   clearingMetaEvidence,
-  //   governor,
-  //   [submissionBaseDeposit, removalBaseDeposit, submissionChallengeBaseDeposit, removalChallengeBaseDeposit],
-  //   challengePeriodDuration,
-  //   [sharedStakeMultiplier, winnerStakeMultiplier, loserStakeMultiplier],
-  //   RelayMock.address
-  // );
   console.log(LGTCRFactory.address, "address of LGTCR factory");
   const LightGeneralizedTCRView = await deploy("LightGeneralizedTCRView", {
     from: governor,
