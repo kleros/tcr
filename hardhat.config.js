@@ -33,7 +33,18 @@ module.exports = {
           url: `https://matic-mumbai.chainstacklabs.com`,
         chainId: 80001,
         accounts:["YOURPRIVATEKEYFORGOVERNOR","YOURPRIVATEKEYFORREQUESTER","YOURPRIVATEKEYFORCHALLENGER","YOURPRIVATEKEYFORGOVERNOR2","YOURPRIVATEKEYFOROTHER","YOURPRIVATEKEYFORDEPLOYER"],
-      }
+      },
+      goerli: {
+        chainId: 5,
+        url: `https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+        accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+        live: true,
+        saveDeployments: true,
+        tags: ["staging", "foreign", "layer1"],
+        companionNetworks: {
+          home: "arbitrumGoerli",
+        },
+      },
     },
     namedAccounts: {
       governor: {

@@ -1,0 +1,90 @@
+{
+  "address": "0xBA7C67744638D6B1E086B3d5898BC1aE8147CeCC",
+  "abi": [
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_address",
+          "type": "address"
+        },
+        {
+          "internalType": "address payable",
+          "name": "_contributor",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_itemID",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_cursor",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_count",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_roundCursor",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_roundCount",
+          "type": "uint256"
+        }
+      ],
+      "name": "batchRequestWithdraw",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_address",
+          "type": "address"
+        },
+        {
+          "internalType": "address payable",
+          "name": "_contributor",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_itemID",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_request",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_cursor",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_count",
+          "type": "uint256"
+        }
+      ],
+      "name": "batchRoundWithdraw",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]
+}
