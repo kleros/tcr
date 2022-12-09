@@ -1,6 +1,7 @@
-const { web3, deployments, ethers, getNamedAccounts } = require("hardhat");
-const { BN, expectRevert, time } = require("@openzeppelin/test-helpers");
+const { web3, deployments, ethers } = require("hardhat");
+const { expectRevert, time } = require("@openzeppelin/test-helpers");
 const { soliditySha3 } = require("web3-utils");
+const { BN } = require("bn.js");
 
 describe("GTCR", async () => {
   const PARTY = {
@@ -19,6 +20,8 @@ describe("GTCR", async () => {
   const sharedStakeMultiplier = 5000;
   const winnerStakeMultiplier = 2000;
   const loserStakeMultiplier = 8000;
+  const arbitratorExtraData = "0x85";
+  const arbitrationCost = 1000;
   let governor;
   let requester;
   let challenger;
@@ -26,10 +29,10 @@ describe("GTCR", async () => {
   let governor2;
   let gtcr;
   let arbitrator;
+  let gtcrFactory;
+  let MULTIPLIER_DIVISOR, submitterTotalCost, removalTotalCost, submissionChallengeTotalCost, removalChallengeTotalCost;
   before("setup accounts", async () => {
-    [ governor, requester, challenger, governor2, other,deployer] = await ethers.getSigners();
-    arbitratorExtraData = "0x85";
-    arbitrationCost = 1000;
+    [governor, requester, challenger, governor2, other] = await ethers.getSigners();
   });
   beforeEach("contract setup", async function () {
     await deployments.fixture(["gtcrContracts"], {
@@ -37,13 +40,12 @@ describe("GTCR", async () => {
       keepExistingDeployments: false,
     });
     arbitrator = await ethers.getContract("EnhancedAppealableArbitrator");
-    //instanceOfContract = await ethers.getContractAt(arbitrator.address);
     await arbitrator.connect(governor).changeArbitrator(arbitrator.address);
     await arbitrator.connect(other).createDispute(3, arbitratorExtraData, {
       value: arbitrationCost,
-    }); // Create a dispute so the index in tests will not be a default value.
+    });
     gtcrFactory = await ethers.getContract("GTCRFactory");
-    let txn = await gtcrFactory
+    await gtcrFactory
       .connect(governor)
       .deploy(
         arbitrator.address,
@@ -61,7 +63,6 @@ describe("GTCR", async () => {
       );
     let gtcrAddress = await gtcrFactory.instances(0);
     gtcr = await ethers.getContractAt("GeneralizedTCR", gtcrAddress);
-    //assert.equal(await gtcr.arbitrator(), arbitrator.address);
     MULTIPLIER_DIVISOR = (await gtcr.MULTIPLIER_DIVISOR()).toNumber();
     submitterTotalCost = arbitrationCost + submissionBaseDeposit;
     removalTotalCost = arbitrationCost + removalBaseDeposit;
@@ -113,7 +114,6 @@ describe("GTCR", async () => {
       "0xffb43c480000000000000000000000000000000000000000000000000000000000002222",
       "Item data has not been set up properly"
     );
-    //assert.equal(item[1].toNumber(), 2, "Item status has not been set up properly");
     assert.equal(item[1], 2, "Item status has not been set up properly");
     const request = await gtcr.getRequestInfo(itemID, 0);
     assert.equal(request[4][1], requester.address, "Requester has not been set up properly");
@@ -121,24 +121,17 @@ describe("GTCR", async () => {
     assert.equal(request[8], arbitratorExtraData, "Request extra data has not been set up properly");
 
     const round = await gtcr.getRoundInfo(itemID, 0, 0);
-    //assert.equal(round[1][1].toNumber(), submitterTotalCost, "Requester paidFees has not been registered correctly");
     assert.equal(round[1][1], submitterTotalCost, "Requester paidFees has not been registered correctly");
     assert.equal(round[2][1], true, "Should register that requester paid his fees");
-    //assert.equal(round[3].toNumber(), submitterTotalCost, "FeeRewards has not been registered correctly");
     assert.equal(round[3], submitterTotalCost, "FeeRewards has not been registered correctly");
     const contribution = await gtcr.getContributions(itemID, 0, 0, requester.address);
-    // assert.equal(
-    //   contribution[1].toNumber(),
-    //   submitterTotalCost,
-    //   "Requester contribution has not been registered correctly"
-    // );
+
     assert.equal(contribution[1], submitterTotalCost, "Requester contribution has not been registered correctly");
 
     assert.equal(txAddItemreceipt.events[1].event, "ItemStatusChange", "The event has not been created");
     assert.equal(txAddItemreceipt.events[1].args._itemID, itemID, "The event has wrong item ID");
-    //assert.equal(txAddItem.logs[1].args._requestIndex.toNumber(), 0, "The event has wrong request index");
+
     assert.equal(txAddItemreceipt.events[1].args._requestIndex, 0, "The event has wrong request index");
-    // assert.equal(txAddItem.logs[1].args._roundIndex.toNumber(), 0, "The event has wrong round index");
     assert.equal(txAddItemreceipt.events[1].args._roundIndex, 0, "The event has wrong round index");
   });
 

@@ -1,9 +1,8 @@
-const { network, ethers, artifacts } = require("hardhat");
-module.exports = async ({ getNamedAccounts, deployments}) => {
-  const { deploy} = deployments;
-  const { deployer, governor} = await getNamedAccounts();
-  arbitratorExtraData = "0x85";
-  arbitrationCost = 1000;
+module.exports = async ({ getNamedAccounts, deployments }) => {
+  const { deploy } = deployments;
+  const { deployer, governor } = await getNamedAccounts();
+  const arbitratorExtraData = "0x85";
+  const arbitrationCost = 1000;
   const appealTimeOut = 180;
 
   // the following will deploy "EnhancedAppealableArbitrator" if the contract was never deployed or if the code changed since last deployment
@@ -16,6 +15,7 @@ module.exports = async ({ getNamedAccounts, deployments}) => {
     from: deployer,
     args: [],
   });
+
   console.log(GTCRFactory.address, "GTCRFactory address");
   const LGTCR = await deploy("LightGeneralizedTCR", {
     from: deployer,
@@ -54,6 +54,5 @@ module.exports = async ({ getNamedAccounts, deployments}) => {
     args: [],
   });
   console.log(LBatchWithdraw.address, "address of LightBatchWithdraw");
-  
 };
 module.exports.tags = ["gtcrContracts"];

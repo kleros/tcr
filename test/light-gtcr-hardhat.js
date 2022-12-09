@@ -1,9 +1,10 @@
-const { web3, deployments, ethers} = require("hardhat");
-const { BN, expectEvent, expectRevert, time } = require("@openzeppelin/test-helpers");
+const { web3, deployments, ethers } = require("hardhat");
+const { expectRevert, time } = require("@openzeppelin/test-helpers");
+const { BN } = require("bn.js");
 const chai = require("chai");
 const { solidity } = require("ethereum-waffle");
 chai.use(solidity);
-const { expect,assert } = chai;
+const { expect, assert } = chai;
 const Arbitrator = artifacts.require("EnhancedAppealableArbitrator");
 const { soliditySha3 } = require("web3-utils");
 
@@ -38,7 +39,6 @@ describe("LightGeneralizedTCR", () => {
   let newArbitrator;
   let factory;
   let gtcr;
-  let implementation;
   let MULTIPLIER_DIVISOR;
   let submitterTotalCost;
   let submissionChallengeTotalCost;
@@ -47,23 +47,23 @@ describe("LightGeneralizedTCR", () => {
   let removalChallengeTotalCost;
 
   before("Get accounts", async () => {
-    [ governor, requester, challenger, governor2, other,deployer] = await ethers.getSigners();
+    [governor, requester, challenger, governor2, other] = await ethers.getSigners();
     arbitratorExtraData = "0x85";
     arbitrationCost = 1000;
   });
 
   beforeEach("initialize the contract", async function () {
     await deployments.fixture(["gtcrContracts"], {
-        fallbackToGlobal: true,
-        keepExistingDeployments: false,
-      });
+      fallbackToGlobal: true,
+      keepExistingDeployments: false,
+    });
     arbitrator = await ethers.getContract("EnhancedAppealableArbitrator");
     relay = await ethers.getContract("RelayMock");
     newArbitrator = await Arbitrator.new(arbitrationCost, governor.address, arbitratorExtraData, appealTimeOut, {
-        from: governor.address,
-      });
-      
-      relay = await ethers.getContract("RelayMock");
+      from: governor.address,
+    });
+
+    relay = await ethers.getContract("RelayMock");
     await arbitrator.connect(governor).changeArbitrator(arbitrator.address);
     await arbitrator.connect(other).createDispute(3, arbitratorExtraData, {
       value: arbitrationCost,
@@ -85,7 +85,6 @@ describe("LightGeneralizedTCR", () => {
 
     const proxyAddress = await factory.instances(0);
     gtcr = await ethers.getContractAt("LightGeneralizedTCR", proxyAddress);
-
 
     MULTIPLIER_DIVISOR = (await gtcr.MULTIPLIER_DIVISOR()).toNumber();
     submitterTotalCost = arbitrationCost + submissionBaseDeposit;
@@ -160,7 +159,11 @@ describe("LightGeneralizedTCR", () => {
       );
       assert.equal(txAddItemReceipt.events[2].event, "Contribution", "The Contribution event has not been created");
       assert.equal(txAddItemReceipt.events[2].args._roundID, 0, "The Contribution event has wrong round ID");
-      assert.equal(txAddItemReceipt.events[1].event, "RequestSubmitted", "The RequestSubmitted event has not been created");
+      assert.equal(
+        txAddItemReceipt.events[1].event,
+        "RequestSubmitted",
+        "The RequestSubmitted event has not been created"
+      );
       assert.equal(txAddItemReceipt.events[1].args._itemID, itemID, "The RequestSubmitted event has wrong item ID");
     });
   });
@@ -214,11 +217,23 @@ describe("LightGeneralizedTCR", () => {
       assert.equal(txChallengeReceipt.events[2].event, "Dispute", "The event Dispute has not been created");
       assert.equal(txChallengeReceipt.events[2].args._arbitrator, arbitrator.address, "The event has wrong arbitrator");
       assert.equal(txChallengeReceipt.events[2].args._disputeID.toNumber(), 1, "The event has wrong dispute ID");
-      assert.equal(txChallengeReceipt.events[2].args._metaEvidenceID.toNumber(), 0, "The event has wrong metaevidence ID");
-      assert.equal(txChallengeReceipt.events[2].args._evidenceGroupID, evidenceGroupID, "The event has wrong evidenceGroup ID");
+      assert.equal(
+        txChallengeReceipt.events[2].args._metaEvidenceID.toNumber(),
+        0,
+        "The event has wrong metaevidence ID"
+      );
+      assert.equal(
+        txChallengeReceipt.events[2].args._evidenceGroupID,
+        evidenceGroupID,
+        "The event has wrong evidenceGroup ID"
+      );
       assert.equal(txChallengeReceipt.events[3].event, "Evidence", "The event Evidence has not been created");
       assert.equal(txChallengeReceipt.events[3].args._arbitrator, arbitrator.address, "The event has wrong arbitrator");
-      assert.equal(txChallengeReceipt.events[3].args._evidenceGroupID, evidenceGroupID, "The event has wrong evidenceGroup ID");
+      assert.equal(
+        txChallengeReceipt.events[3].args._evidenceGroupID,
+        evidenceGroupID,
+        "The event has wrong evidenceGroup ID"
+      );
       assert.equal(txChallengeReceipt.events[3].args._party, challenger.address, "The event has wrong party");
       assert.equal(txChallengeReceipt.events[3].args._evidence, "Evidence.json", "The event has wrong evidence");
 
@@ -313,7 +328,7 @@ describe("LightGeneralizedTCR", () => {
     it("Should revert when trying to fund an appeal for an unexistent dispute", async () => {
       await expectRevert(
         gtcr.connect(challenger).fundAppeal("0x0000000000000000000000000000000000000000000000000000000000000000", 2, {
-          value:"2000000000000000000",
+          value: "2000000000000000000",
         }),
         "The item must have a pending request."
       );
@@ -333,7 +348,7 @@ describe("LightGeneralizedTCR", () => {
 
       await expectRevert(
         gtcr.connect(requester).fundAppeal(itemID, PARTY.REQUESTER, {
-          value:"1000000000000000000",
+          value: "1000000000000000000",
         }),
         "Side already fully funded."
       );
@@ -429,7 +444,7 @@ describe("LightGeneralizedTCR", () => {
         "Incorrect FeeRewards value after partial payment"
       );
 
-      await gtcr.connect(challenger).fundAppeal(itemID, PARTY.CHALLENGER, {value: "5000000000000000000" });
+      await gtcr.connect(challenger).fundAppeal(itemID, PARTY.CHALLENGER, { value: "5000000000000000000" });
 
       roundInfo = await gtcr.getRoundInfo(itemID, 0, 1);
 
@@ -452,7 +467,7 @@ describe("LightGeneralizedTCR", () => {
     });
 
     it("Should create a new round when an appeal is successfully funded by both sides", async () => {
-      await gtcr.connect(requester).fundAppeal(itemID, PARTY.REQUESTER, {value: loserAppealFee });
+      await gtcr.connect(requester).fundAppeal(itemID, PARTY.REQUESTER, { value: loserAppealFee });
       await gtcr.connect(challenger).fundAppeal(itemID, PARTY.CHALLENGER, { value: winnerAppealFee });
 
       // If both sides pay their fees it starts new appeal round. Check that both sides have their value set to default.
@@ -480,7 +495,7 @@ describe("LightGeneralizedTCR", () => {
       tx = await gtcr.connect(requester).addItem("/ipfs/Qwabdaa", {
         value: submitterTotalCost,
       });
-      txReceipt = await tx.wait();
+      let txReceipt = await tx.wait();
       itemID = txReceipt.events[0].args._itemID;
       // Appeal fee is the same as arbitration fee for this arbitrator.
       loserAppealFee = arbitrationCost + (arbitrationCost * loserStakeMultiplier) / MULTIPLIER_DIVISOR;
@@ -743,7 +758,7 @@ describe("LightGeneralizedTCR", () => {
       });
 
       await gtcr.connect(other).fundAppeal(itemID, 1, { value: sharedAppealFee });
-      await gtcr.connect(other).fundAppeal(itemID, 2, {value: sharedAppealFee });
+      await gtcr.connect(other).fundAppeal(itemID, 2, { value: sharedAppealFee });
 
       await arbitrator.connect(governor).giveRuling(2, PARTY.NONE);
       await time.increase(appealTimeOut + 1);
@@ -879,7 +894,7 @@ describe("LightGeneralizedTCR", () => {
     const txChangeConnected = await gtcr.connect(governor2).changeConnectedTCR(governor2.address);
     let txChangeConnectedReceipt = await txChangeConnected.wait();
     assert.equal(
-        txChangeConnectedReceipt.events[0].args._connectedTCR,
+      txChangeConnectedReceipt.events[0].args._connectedTCR,
       governor2.address,
       "The event has the wrong connectedTCR address"
     );
@@ -934,23 +949,39 @@ describe("LightGeneralizedTCR", () => {
         clearingMetaEvidence: "/ipfs/Qmbar",
       };
 
-      updateTx = await gtcr.connect(governor).changeArbitrationParams(
-        newParams.arbitrator,
-        newParams.arbitratorExtraData,
-        newParams.registrationMetaEvidence,
-        newParams.clearingMetaEvidence,
-      );
-     updateTxReceipt = await updateTx.wait();
+      updateTx = await gtcr
+        .connect(governor)
+        .changeArbitrationParams(
+          newParams.arbitrator,
+          newParams.arbitratorExtraData,
+          newParams.registrationMetaEvidence,
+          newParams.clearingMetaEvidence
+        );
+      updateTxReceipt = await updateTx.wait();
       await time.increase(600);
     });
     it("Should emit the correct MetaEvidence events", async () => {
+      assert.equal(
+        updateTxReceipt.events[0].args._metaEvidenceID.toString(),
+        expectedRegistrationMetaEvidenceID.toString(),
+        "incorrect MetaEvidenceId"
+      );
+      assert.equal(
+        updateTxReceipt.events[0].args._evidence.toString(),
+        newParams.registrationMetaEvidence.toString(),
+        "incorrect Evidence"
+      );
 
-      assert.equal(updateTxReceipt.events[0].args._metaEvidenceID.toString(),expectedRegistrationMetaEvidenceID.toString(),"incorrect MetaEvidenceId");
-      assert.equal(updateTxReceipt.events[0].args._evidence.toString(),newParams.registrationMetaEvidence.toString(),"incorrect Evidence");
-
-      assert.equal(updateTxReceipt.events[1].args._metaEvidenceID.toString(),expectedClearingMetaEvidenceID.toString(),"incorrect MetaEvidenceId");
-      assert.equal(updateTxReceipt.events[1].args._evidence.toString(),newParams.clearingMetaEvidence.toString(),"incorrect Evidence");
-     
+      assert.equal(
+        updateTxReceipt.events[1].args._metaEvidenceID.toString(),
+        expectedClearingMetaEvidenceID.toString(),
+        "incorrect MetaEvidenceId"
+      );
+      assert.equal(
+        updateTxReceipt.events[1].args._evidence.toString(),
+        newParams.clearingMetaEvidence.toString(),
+        "incorrect Evidence"
+      );
     });
 
     describe("When registering an item", () => {
@@ -962,16 +993,10 @@ describe("LightGeneralizedTCR", () => {
         addTx = await gtcr.connect(requester).addItem("0xaabbaa", {
           value: submitterTotalCost,
         });
-        let addTxReceipt =await addTx.wait();
+        let addTxReceipt = await addTx.wait();
         itemID = addTxReceipt.events[0].args._itemID;
         evidenceGroupID = new BN(soliditySha3(itemID, 0).slice(2), 16);
-      assert.equal(addTxReceipt.events[1].args._itemID.toString(),itemID.toString(),"incorrect ItemId");
-     // assert.equal(addTxReceipt.events[1].args._evidenceGroupID,evidenceGroupID,"incorrect EvidenceGroupId");
-      
-      //   expectEvent(addTxReceipt.events[0], "RequestSubmitted", {
-      //     _itemID: itemID,
-      //     _evidenceGroupID: evidenceGroupID,
-      //   });
+        assert.equal(addTxReceipt.events[1].args._itemID.toString(), itemID.toString(), "incorrect ItemId");
       });
 
       it("Should use the updated arbitration params for the request", async () => {
@@ -993,13 +1018,21 @@ describe("LightGeneralizedTCR", () => {
 
       it("Should use the updated arbitration params when challenging the request", async () => {
         const txChallenge = await gtcr.connect(challenger).challengeRequest(itemID, "Evidence.json", {
-          value: submissionChallengeTotalCost
+          value: submissionChallengeTotalCost,
         });
         let txChallengeReceipt = await txChallenge.wait();
-      assert.equal(txChallengeReceipt.events[2].args._arbitrator,newParams.arbitrator,"incorrect arbitrator");
-      assert.equal(txChallengeReceipt.events[2].args._disputeID.toString(),"0","incorrect disputeId");
-      assert.equal(txChallengeReceipt.events[2].args._metaEvidenceID.toString(),expectedRegistrationMetaEvidenceID.toString(),"incorrect metaEvidenceId");
-      assert.equal(txChallengeReceipt.events[2].args._evidenceGroupID.toString(),evidenceGroupID.toString(),"incorrect evidenceGroupId");
+        assert.equal(txChallengeReceipt.events[2].args._arbitrator, newParams.arbitrator, "incorrect arbitrator");
+        assert.equal(txChallengeReceipt.events[2].args._disputeID.toString(), "0", "incorrect disputeId");
+        assert.equal(
+          txChallengeReceipt.events[2].args._metaEvidenceID.toString(),
+          expectedRegistrationMetaEvidenceID.toString(),
+          "incorrect metaEvidenceId"
+        );
+        assert.equal(
+          txChallengeReceipt.events[2].args._evidenceGroupID.toString(),
+          evidenceGroupID.toString(),
+          "incorrect evidenceGroupId"
+        );
       });
     });
 
@@ -1023,13 +1056,12 @@ describe("LightGeneralizedTCR", () => {
         });
         let removeTxReceipt = await removeTx.wait();
         evidenceGroupID = new BN(soliditySha3(itemID, 1).slice(2), 16);
-      assert.equal(removeTxReceipt.events[0].args._itemID.toString(),itemID.toString(),"incorrect itemId");
-      assert.equal(removeTxReceipt.events[0].args._evidenceGroupID.toString(),evidenceGroupID.toString(),"incorrect evidenceGroupId");
-      
-        // expectEvent(removeTx, "RequestSubmitted", {
-        //   _itemID: itemID,
-        //   _evidenceGroupID: evidenceGroupID,
-        // });
+        assert.equal(removeTxReceipt.events[0].args._itemID.toString(), itemID.toString(), "incorrect itemId");
+        assert.equal(
+          removeTxReceipt.events[0].args._evidenceGroupID.toString(),
+          evidenceGroupID.toString(),
+          "incorrect evidenceGroupId"
+        );
       });
 
       it("Should use the updated arbitration params for the request", async () => {
@@ -1050,17 +1082,18 @@ describe("LightGeneralizedTCR", () => {
           value: submissionChallengeTotalCost,
         });
         let txChallengeReceipt = await txChallenge.wait();
-      assert.equal(txChallengeReceipt.events[2].args._arbitrator,newParams.arbitrator,"incorrect arbitrator");
-      assert.equal(txChallengeReceipt.events[2].args._disputeID.toString(),"0","incorrect itemId");
-      assert.equal(txChallengeReceipt.events[2].args._metaEvidenceID.toString(),expectedClearingMetaEvidenceID.toString(),"incorrect itemId");
-      assert.equal(txChallengeReceipt.events[2].args._evidenceGroupID.toString(),evidenceGroupID.toString(),"incorrect itemId");
-      
-        // await expectEvent(txChallenge, "Dispute", {
-        //   _arbitrator: newParams.arbitrator,
-        //   _disputeID: "0",
-        //   _metaEvidenceID: String(expectedClearingMetaEvidenceID),
-        //   _evidenceGroupID: evidenceGroupID,
-        // });
+        assert.equal(txChallengeReceipt.events[2].args._arbitrator, newParams.arbitrator, "incorrect arbitrator");
+        assert.equal(txChallengeReceipt.events[2].args._disputeID.toString(), "0", "incorrect itemId");
+        assert.equal(
+          txChallengeReceipt.events[2].args._metaEvidenceID.toString(),
+          expectedClearingMetaEvidenceID.toString(),
+          "incorrect itemId"
+        );
+        assert.equal(
+          txChallengeReceipt.events[2].args._evidenceGroupID.toString(),
+          evidenceGroupID.toString(),
+          "incorrect itemId"
+        );
       });
     });
   });
@@ -1079,12 +1112,14 @@ describe("LightGeneralizedTCR", () => {
       const expectedRegistrationMetaEvidenceID = 12;
 
       for (let i = 0; i <= changesBefore; i++) {
-        await gtcr.connect(governor).changeArbitrationParams(
-          changes[i].arbitrator,
-          changes[i].arbitratorExtraData,
-          changes[i].registrationMetaEvidence,
-          changes[i].clearingMetaEvidence
-        );
+        await gtcr
+          .connect(governor)
+          .changeArbitrationParams(
+            changes[i].arbitrator,
+            changes[i].arbitratorExtraData,
+            changes[i].registrationMetaEvidence,
+            changes[i].clearingMetaEvidence
+          );
         await time.increase(5);
       }
 
@@ -1095,12 +1130,14 @@ describe("LightGeneralizedTCR", () => {
       const itemID = addTxReceipt.events[0].args._itemID;
 
       for (let i = changesBefore + 1; i < changes.lenght; i++) {
-        await gtcr.connect(governor).changeArbitrationParams(
-          changes[i].arbitrator,
-          changes[i].arbitratorExtraData,
-          changes[i].registrationMetaEvidence,
-          changes[i].clearingMetaEvidence
-        );
+        await gtcr
+          .connect(governor)
+          .changeArbitrationParams(
+            changes[i].arbitrator,
+            changes[i].arbitratorExtraData,
+            changes[i].registrationMetaEvidence,
+            changes[i].clearingMetaEvidence
+          );
         await time.increase(5);
       }
 
@@ -1134,12 +1171,14 @@ describe("LightGeneralizedTCR", () => {
       let addTxReceipt = await addTx.wait();
       itemID = addTxReceipt.events[0].args._itemID;
 
-      await gtcr.connect(governor).changeArbitrationParams(
-        newParams.arbitrator,
-        newParams.arbitratorExtraData,
-        newParams.registrationMetaEvidence,
-        newParams.clearingMetaEvidence
-      );
+      await gtcr
+        .connect(governor)
+        .changeArbitrationParams(
+          newParams.arbitrator,
+          newParams.arbitratorExtraData,
+          newParams.registrationMetaEvidence,
+          newParams.clearingMetaEvidence
+        );
 
       await time.increase(challengePeriodDuration / 2);
     });
@@ -1167,7 +1206,7 @@ describe("LightGeneralizedTCR", () => {
 
       await arbitrator.connect(governor).giveRuling(1, PARTY.CHALLENGER);
 
-      await gtcr.connect(requester).fundAppeal(itemID, PARTY.REQUESTER, {  value: loserAppealFee });
+      await gtcr.connect(requester).fundAppeal(itemID, PARTY.REQUESTER, { value: loserAppealFee });
       const appealTx = await gtcr.connect(requester).fundAppeal(itemID, PARTY.CHALLENGER, { value: winnerAppealFee });
       expect(appealTx).to.emit(arbitrator, "AppealDecision").withArgs("1", gtcr.address);
     });

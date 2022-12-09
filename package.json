@@ -2,7 +2,7 @@
   "name": "@kleros/tcr",
   "version": "2.0.0",
   "description": "Arbitrable Permission Lists on Ethereum",
-  "repository": "https://github.com/kleros/tcr",
+  "repository": "https://github.com/Params10/tcr",
   "author": "Kleros",
   "license": "MIT",
   "private": false,
@@ -54,6 +54,7 @@
   },
   "dependencies": {
     "@kleros/erc-792": "3.0.0",
+    "bn.js": "^5.2.1",
     "hardhat-deploy": "^0.11.20",
     "solidity-bytes-utils": "^0.0.8",
     "solidity-rlp": "^2.0.1"

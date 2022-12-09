@@ -1,6 +1,7 @@
-const { web3, deployments, ethers } = require("hardhat");
+const { deployments, ethers } = require("hardhat");
 const { expect } = require("chai");
-const { BN, expectRevert } = require("@openzeppelin/test-helpers");
+const { expectRevert } = require("@openzeppelin/test-helpers");
+const { BN } = require("bn.js");
 
 describe("LightGTCRFactory", async () => {
   let governor;
@@ -24,7 +25,7 @@ describe("LightGTCRFactory", async () => {
   let relay;
 
   before("Get accounts", async () => {
-    [ governor, requester, challenger, governor2, other,deployer] = await ethers.getSigners();
+    [governor, , , , other] = await ethers.getSigners();
     arbitratorExtraData = "0x85";
     arbitrationCost = 1000;
   });
