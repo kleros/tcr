@@ -2,7 +2,7 @@
   "name": "@kleros/tcr",
   "version": "2.0.0",
   "description": "Arbitrable Permission Lists on Ethereum",
-  "repository": "https://github.com/Params10/tcr",
+  "repository": "https://github.com/kleros/tcr",
   "author": "Kleros",
   "license": "MIT",
   "private": false,

@@ -49,6 +49,7 @@ Testrpc default gas limit is lower than the mainnet which prevents deploying som
 
 - Run `npx hardhat test --network <network name in hardhat.config.js>` to run all test cases in test folder.
 - Run `npx hardhat test <location of test file> --network <network name in hardhat.config.js>` to run the test cases for specific contract.
+- Add private keys for the roles needed to test the contracts according to hardhat.config.js.
 
 ## Contributing
 
