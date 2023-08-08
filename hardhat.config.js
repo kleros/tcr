@@ -3,6 +3,10 @@ require("@nomiclabs/hardhat-web3");
 require("hardhat-gas-reporter");
 require("@nomiclabs/hardhat-ethers");
 require("hardhat-deploy");
+const dotenv = require("dotenv");
+
+dotenv.config();
+
 module.exports = {
   solidity: {
     version: "0.5.17",
@@ -43,6 +47,20 @@ module.exports = {
     goerli: {
       chainId: 5,
       url: `https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts:
+        process.env.PRIVATE_KEY_GOVERNOR !== undefined && process.env.PRIVATE_KEY_DEPLOYER !== undefined
+          ? [process.env.PRIVATE_KEY_GOVERNOR, process.env.PRIVATE_KEY_DEPLOYER]
+          : [],
+      live: true,
+      saveDeployments: true,
+      tags: ["staging", "foreign", "layer1"],
+      etherscan: {
+        apiKey: process.env.ETHERSCAN_API_KEY,
+      },
+    },
+    sepolia: {
+      chainId: 11155111,
+      url: `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts:
         process.env.PRIVATE_KEY_GOVERNOR !== undefined && process.env.PRIVATE_KEY_DEPLOYER !== undefined
           ? [process.env.PRIVATE_KEY_GOVERNOR, process.env.PRIVATE_KEY_DEPLOYER]
